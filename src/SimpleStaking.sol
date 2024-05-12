@@ -44,7 +44,7 @@ contract SimpleStaking {
         // note: how?
 
         // cache
-        Data memory idData = ids[msg.sender];
+        Data memory idData = ids[id];
         Data memory userData = users[msg.sender][id];
 
         // close the books
@@ -82,7 +82,7 @@ contract SimpleStaking {
         // note: how?
 
         // cache
-        Data memory idData = ids[msg.sender];
+        Data memory idData = ids[id];
         Data memory userData = users[msg.sender][id];
 
         // sanity checks
