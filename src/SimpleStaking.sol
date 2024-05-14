@@ -7,6 +7,8 @@ import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ut
 import {Pausable} from "openzeppelin-contracts/contracts/utils/Pausable.sol";
 import {Ownable2Step, Ownable} from  "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 
+import {IREALMID} from "./IRealmId.sol";
+
 /**
  note:
   - is there an end time?
@@ -24,21 +26,22 @@ contract SimpleStaking {
         uint256 lastUpdateTimestamp;
     }
 
-    mapping(address user => mapping (bytes32 id => Data userData)) public users;
-    //mapping(bytes32 id => uint256 balance) public balances;
     mapping(bytes32 id => Data idData) public ids;
+    mapping(address user => mapping (bytes32 id => Data userData)) public users;
 
     
     event Staked(address indexed user, bytes32 indexed id, uint256 amount);
     event Unstaked(address indexed user, bytes32 indexed id, uint256 amount);
 
 
-    constructor(address mocaToken){
+    constructor(address mocaToken, adderss realmId){
         
         MOCA_TOKEN = IERC20(mocaToken);
+        REALM_ID = IREALMID(realmId);
     }
 
     function stake(bytes32 id, uint256 amount) external {
+        // note: can drop require
         require(id != bytes32(0), "Invalid id");
         
         // check if id exists: reverts if owner == address(0)
@@ -77,6 +80,7 @@ contract SimpleStaking {
     }
 
     function unstake(bytes32 id, uint256 amount) external {
+        // note: can drop require
         require(id != bytes32(0), "Invalid id");
 
         // check if id exists: reverts if owner == address(0)
