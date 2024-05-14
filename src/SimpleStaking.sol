@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+//import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {Pausable} from "openzeppelin-contracts/contracts/utils/Pausable.sol";
@@ -16,6 +16,7 @@ contract SimpleStaking {
     using SafeERC20 for IERC20;
 
     IERC20 public MOCA_TOKEN;
+    IREALMID public REALM_ID;
 
     struct Data {
         uint256 amount;
@@ -40,8 +41,8 @@ contract SimpleStaking {
     function stake(bytes32 id, uint256 amount) external {
         require(id != bytes32(0), "Invalid id");
         
-        // check if id exists
-        // note: how?
+        // check if id exists: reverts if owner == address(0)
+        realmIdContract.ownerOf(realmId);
 
         // cache
         Data memory idData = ids[id];
@@ -78,8 +79,8 @@ contract SimpleStaking {
     function unstake(bytes32 id, uint256 amount) external {
         require(id != bytes32(0), "Invalid id");
 
-        // check if id exists
-        // note: how?
+        // check if id exists: reverts if owner == address(0)
+        realmIdContract.ownerOf(realmId);
 
         // cache
         Data memory idData = ids[id];
@@ -117,5 +118,40 @@ contract SimpleStaking {
         MOCA_TOKEN.safeTransfer(msg.sender, amount);
     }
 
-    
+
+    function getIdTotalTimeWeight(bytes32 id) external view {
+        // cache
+        Data memory id = ids[id];
+
+        // nothing staked, nothing gained 
+        if(id.amount == 0) return 0;
+
+        // calc. unbooked 
+        if(id.lastUpdateTimestamp > block.timestamp) {
+
+            uint256 unbookedWeight = id.amount * (block.timestamp - id.lastUpdateTimestamp);
+            return (id.timeWeighted + unbookedWeight);
+        }
+
+        // updated to latest, nothing unbooked 
+        return id.timeWeighted;
+    }
+
+    function getAddressTimeWeight(bytes32 id, address user) external view {
+        // cache
+        Data memory userData = users[user][id];
+
+        // nothing staked, nothing gained 
+        if(id.amount == 0) return 0;
+
+        // calc. unbooked 
+        if(id.lastUpdateTimestamp > block.timestamp) {
+
+            uint256 unbookedWeight = id.amount * (block.timestamp - id.lastUpdateTimestamp);
+            return (id.timeWeighted + unbookedWeight);
+        }
+
+        // updated to latest, nothing unbooked 
+        return id.timeWeighted;
+    }
 }
