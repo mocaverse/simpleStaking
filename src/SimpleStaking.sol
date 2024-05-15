@@ -17,6 +17,7 @@ import {IREALMID} from "./IRealmId.sol";
 contract SimpleStaking {
     using SafeERC20 for IERC20;
 
+    // interfaces 
     IERC20 public MOCA_TOKEN;
     IREALMID public REALM_ID;
 
@@ -26,26 +27,24 @@ contract SimpleStaking {
         uint256 lastUpdateTimestamp;
     }
 
-    mapping(bytes32 id => Data idData) public ids;
-    mapping(address user => mapping (bytes32 id => Data userData)) public users;
+    mapping(uint256 id => Data idData) public ids;
+    mapping(address user => mapping (uint256 id => Data userData)) public users;
 
-    
-    event Staked(address indexed user, bytes32 indexed id, uint256 amount);
-    event Unstaked(address indexed user, bytes32 indexed id, uint256 amount);
+    // events 
+    event Staked(address indexed user, uint256 indexed id, uint256 amount);
+    event Unstaked(address indexed user, uint256 indexed id, uint256 amount);
 
 
-    constructor(address mocaToken, adderss realmId){
+    constructor(address mocaToken, address realmId){
         
         MOCA_TOKEN = IERC20(mocaToken);
         REALM_ID = IREALMID(realmId);
     }
 
-    function stake(bytes32 id, uint256 amount) external {
-        // note: can drop require
-        require(id != bytes32(0), "Invalid id");
-        
+    function stake(uint256 id, uint256 amount) external {
+
         // check if id exists: reverts if owner == address(0)
-        realmIdContract.ownerOf(realmId);
+        REALM_ID.ownerOf(id);
 
         // cache
         Data memory idData = ids[id];
@@ -53,19 +52,20 @@ contract SimpleStaking {
 
         // close the books
         if(idData.amount > 0) {
-            if(idData.lastUpdateTimestamp > block.timestamp) {
-                //uint256 currentTimestamp = block.timestamp > endTime ? endTime : block.timestamp;
+            if(idData.lastUpdateTimestamp < block.timestamp) {
                 uint256 timeDelta = block.timestamp - idData.lastUpdateTimestamp;
                 
                 idData.timeWeighted += timeDelta * idData.amount;
+                idData.lastUpdateTimestamp = block.timestamp;
             }
         }
         
         if(userData.amount > 0){
-            if(userData.lastUpdateTimestamp > block.timestamp){
-
+            if(userData.lastUpdateTimestamp < block.timestamp){
                 uint256 timeDelta = block.timestamp - userData.lastUpdateTimestamp;
+
                 userData.timeWeighted += timeDelta * userData.amount;
+                userData.lastUpdateTimestamp = block.timestamp;
             }
         }
 
@@ -73,18 +73,20 @@ contract SimpleStaking {
         idData.amount += amount;
         userData.amount += amount;
 
+        // update storage
+        ids[id] = idData;
+        users[msg.sender][id] = userData;
+
         emit Staked(msg.sender, id, amount);
  
         // grab MOCA
         MOCA_TOKEN.safeTransferFrom(msg.sender, address(this), amount);
     }
 
-    function unstake(bytes32 id, uint256 amount) external {
-        // note: can drop require
-        require(id != bytes32(0), "Invalid id");
+    function unstake(uint256 id, uint256 amount) external {
 
         // check if id exists: reverts if owner == address(0)
-        realmIdContract.ownerOf(realmId);
+        REALM_ID.ownerOf(id);
 
         // cache
         Data memory idData = ids[id];
@@ -96,25 +98,33 @@ contract SimpleStaking {
 
         // close the books
         if(idData.amount > 0) {
-            if(idData.lastUpdateTimestamp > block.timestamp) {
+            if(idData.lastUpdateTimestamp < block.timestamp) {
                 //uint256 currentTimestamp = block.timestamp > endTime ? endTime : block.timestamp;
                 uint256 timeDelta = block.timestamp - idData.lastUpdateTimestamp;
                 
                 idData.timeWeighted += timeDelta * idData.amount;
+                idData.lastUpdateTimestamp = block.timestamp;
             }
         }
         
         if(userData.amount > 0){
-            if(userData.lastUpdateTimestamp > block.timestamp){
+            if(userData.lastUpdateTimestamp < block.timestamp){
 
                 uint256 timeDelta = block.timestamp - userData.lastUpdateTimestamp;
+
                 userData.timeWeighted += timeDelta * userData.amount;
+                userData.lastUpdateTimestamp = block.timestamp;
             }
         }
 
         // book outflow
         idData.amount -= amount;
         userData.amount -= amount;
+
+        // update state 
+        ids[id] = idData;
+        users[msg.sender][id] = userData;
+
 
         emit Unstaked(msg.sender, id, amount);
 
@@ -123,39 +133,33 @@ contract SimpleStaking {
     }
 
 
-    function getIdTotalTimeWeight(bytes32 id) external view {
+    function getIdTotalTimeWeight(uint256 id) external view returns(uint256) {
         // cache
-        Data memory id = ids[id];
-
-        // nothing staked, nothing gained 
-        if(id.amount == 0) return 0;
+        Data memory idData = ids[id];
 
         // calc. unbooked 
-        if(id.lastUpdateTimestamp > block.timestamp) {
+        if(idData.lastUpdateTimestamp < block.timestamp) {
 
-            uint256 unbookedWeight = id.amount * (block.timestamp - id.lastUpdateTimestamp);
-            return (id.timeWeighted + unbookedWeight);
+            uint256 unbookedWeight = idData.amount * (block.timestamp - idData.lastUpdateTimestamp);
+            return (idData.timeWeighted + unbookedWeight);
         }
 
         // updated to latest, nothing unbooked 
-        return id.timeWeighted;
+        return idData.timeWeighted;
     }
 
-    function getAddressTimeWeight(bytes32 id, address user) external view {
+    function getAddressTimeWeight(uint256 id, address user) external view returns(uint256) {
         // cache
         Data memory userData = users[user][id];
 
-        // nothing staked, nothing gained 
-        if(id.amount == 0) return 0;
-
         // calc. unbooked 
-        if(id.lastUpdateTimestamp > block.timestamp) {
+        if(userData.lastUpdateTimestamp < block.timestamp) {
 
-            uint256 unbookedWeight = id.amount * (block.timestamp - id.lastUpdateTimestamp);
-            return (id.timeWeighted + unbookedWeight);
+            uint256 unbookedWeight = userData.amount * (block.timestamp - userData.lastUpdateTimestamp);
+            return (userData.timeWeighted + unbookedWeight);
         }
 
         // updated to latest, nothing unbooked 
-        return id.timeWeighted;
+        return userData.timeWeighted;
     }
 }
