@@ -5,13 +5,11 @@ import {Test, console} from "forge-std/Test.sol";
 import {SimpleStaking} from "../src/SimpleStaking.sol";
 
 import {ERC20Mock} from "openzeppelin-contracts/contracts/mocks/token/ERC20Mock.sol";
-import "test/MocaIdMock.sol";
 
 abstract contract StateZero is Test {
 
     SimpleStaking public pool;
     ERC20Mock public mocaToken;
-    MocaIdMock public mocaId;
 
     address public userA;
     address public userB;
@@ -23,8 +21,8 @@ abstract contract StateZero is Test {
     uint256 public userCTokens;
 
     // events 
-    event Staked(address indexed user, uint256 indexed id, uint256 amount);
-    event Unstaked(address indexed user, uint256 indexed id, uint256 amount);
+    event Staked(address indexed user, uint256 amount);
+    event Unstaked(address indexed user, uint256 amount);
 
     function setUp() public virtual {
     
@@ -41,18 +39,12 @@ abstract contract StateZero is Test {
 
         //contracts
         mocaToken = new ERC20Mock();    
-        mocaId = new MocaIdMock();
-        pool = new SimpleStaking(address(mocaToken), address(mocaId));
+        pool = new SimpleStaking(address(mocaToken));
 
         // mint tokens
         mocaToken.mint(userA, userATokens);
         mocaToken.mint(userB, userBTokens);
         mocaToken.mint(userC, userCTokens);
-
-        // mint Ids
-        mocaId.mint(userA, 0);
-        mocaId.mint(userB, 1);
-        mocaId.mint(userC, 2);
         
     }
 
@@ -61,58 +53,29 @@ abstract contract StateZero is Test {
 
 contract StateZeroTest is StateZero {
 
-
-    function testUserCannotStakeToUnmintedId() public {
-        
-        vm.prank(userA);
-        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, 11));
-        pool.stake(11, userATokens);
-
-    }
-
-    function testUserCanStakeToMintedId() public {
+    function testUserCanStake() public {
         // allowance
         vm.prank(userA);
         mocaToken.approve(address(pool), userATokens);
 
         // check events
         vm.expectEmit(true, true, false, false);
-        emit Staked(userA, 0, userATokens);
+        emit Staked(userA, userATokens);
 
         vm.prank(userA);
-        pool.stake(0, userATokens);
+        pool.stake(userATokens);
 
         assertEq(mocaToken.balanceOf(userA), 0);
         assertEq(mocaToken.balanceOf(address(pool)), userATokens);
 
-        (uint256 amount, uint256 timeWeighted, uint256 lastUpdateTimestamp) = pool.ids(0);
+        // get user data
+        (uint256 amount, uint256 timeWeighted, uint256 lastUpdateTimestamp) = pool.users(userA);
         
         assertEq(amount, userATokens);
         assertEq(timeWeighted, 0);
         assertEq(lastUpdateTimestamp, 0);
     }
 
-    function testUserCanStakeToOtherMintedId() public {
-        // allowance
-        vm.prank(userA);
-        mocaToken.approve(address(pool), userATokens);
-
-        // check events
-        vm.expectEmit(true, true, false, false);
-        emit Staked(userA, 1, userATokens);
-
-        vm.prank(userA);
-        pool.stake(1, userATokens);
-
-        assertEq(mocaToken.balanceOf(userA), 0);
-        assertEq(mocaToken.balanceOf(address(pool)), userATokens);
-
-        (uint256 amount, uint256 timeWeighted, uint256 lastUpdateTimestamp) = pool.ids(1);
-        
-        assertEq(amount, userATokens);
-        assertEq(timeWeighted, 0);
-        assertEq(lastUpdateTimestamp, 0);
-    }
 }
 
 
@@ -127,8 +90,7 @@ abstract contract StateStaked is StateZero {
         
         mocaToken.approve(address(pool), userATokens);
 
-        pool.stake(0, userATokens/2);
-        pool.stake(1, userATokens/2);
+        pool.stake(userATokens);
 
         vm.stopPrank();
     }
@@ -136,23 +98,20 @@ abstract contract StateStaked is StateZero {
 
 contract StateStakedTest is StateStaked {
 
-    function testUserCannotUnstakeAnother() public {
-        
-        // arbitrary user cannot unstake another's stake
-        vm.prank(userB);
-        vm.expectRevert("Insufficient user balance");
-        pool.unstake(0, userATokens/2);
-    }
-
     function testUserCanUnstake() public {
         
-        vm.startPrank(userA);
-            pool.unstake(0, userATokens/2);
-            pool.unstake(1, userATokens/2);
-        vm.stopPrank();
+        vm.prank(userA);
+        pool.unstake(userATokens);
 
         assertEq(mocaToken.balanceOf(userA), userATokens);
         assertEq(mocaToken.balanceOf(address(pool)), 0);
+
+        // get user data
+        (uint256 amount, uint256 timeWeighted, uint256 lastUpdateTimestamp) = pool.users(userA);
+        
+        assertEq(amount, 0);
+        assertEq(timeWeighted, (userATokens * 1));
+        assertEq(lastUpdateTimestamp, 1);
     }
 }
 
@@ -171,21 +130,26 @@ contract StateStakedT10Test is StateStakedT10 {
     
     function testTimeWeightCalculation() public {
 
-        uint256 timeWeightGetter = pool.getIdTotalTimeWeight(0);
+        uint256 timeWeightGetter = pool.getAddressTimeWeight(userA);
 
         //calc.
         uint256 timeDelta = 10 - 0;
-        uint256 timeWeightCalc = timeDelta * userATokens/2;
+        uint256 timeWeightCalc = timeDelta * userATokens;
 
         assertEq(timeWeightGetter, timeWeightCalc);
 
         // exec. state transition
         vm.prank(userA);
-        pool.unstake(0, userATokens/2);
+        pool.unstake(userATokens);
 
-        uint256 timeWeightStoredUpdated = pool.getIdTotalTimeWeight(0);
+        // get user data
+        (uint256 amount, uint256 timeWeightedStored, uint256 lastUpdateTimestamp) = pool.users(userA);
+        
+        assertEq(amount, 0);
+        assertEq(timeWeightedStored, (userATokens * 10));
+        assertEq(lastUpdateTimestamp, 10);
 
-        assertEq(timeWeightStoredUpdated, timeWeightCalc);
+        assertEq(timeWeightedStored, timeWeightCalc);
         
     }
 }
