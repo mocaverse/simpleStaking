@@ -53,6 +53,12 @@ abstract contract StateZero is Test {
 
 contract StateZeroTest is StateZero {
 
+    function testUserCannotUnstake() public {
+        vm.prank(userA);
+        vm.expectRevert("Insufficient user balance");
+        pool.unstake(userATokens);
+    }
+
     function testUserCanStake() public {
         // allowance
         vm.prank(userA);
