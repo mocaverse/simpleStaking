@@ -75,11 +75,11 @@ contract StateZeroTest is StateZero {
         assertEq(mocaToken.balanceOf(address(pool)), userATokens);
 
         // get user data
-        (uint256 amount, uint256 timeWeighted, uint256 lastUpdateTimestamp) = pool.users(userA);
+        SimpleStaking.Data memory userData = pool.getUser(userA);
         
-        assertEq(amount, userATokens);
-        assertEq(timeWeighted, 0);
-        assertEq(lastUpdateTimestamp, 0);
+        assertEq(userData.amount, userATokens);
+        assertEq(userData.cumulativeWeight, 0);
+        assertEq(userData.lastUpdateTimestamp, 0);
     }
 
 }
@@ -113,11 +113,11 @@ contract StateStakedTest is StateStaked {
         assertEq(mocaToken.balanceOf(address(pool)), 0);
 
         // get user data
-        (uint256 amount, uint256 timeWeighted, uint256 lastUpdateTimestamp) = pool.users(userA);
+        SimpleStaking.Data memory userData = pool.getUser(userA);
         
-        assertEq(amount, 0);
-        assertEq(timeWeighted, (userATokens * 1));
-        assertEq(lastUpdateTimestamp, 1);
+        assertEq(userData.amount, 0);
+        assertEq(userData.cumulativeWeight, (userATokens * 1));
+        assertEq(userData.lastUpdateTimestamp, 1);
     }
 }
 
@@ -128,34 +128,57 @@ abstract contract StateStakedT10 is StateStaked {
         super.setUp();
 
         vm.warp(10);
+
+        vm.startPrank(userB);
+        
+        mocaToken.approve(address(pool), userBTokens);
+        pool.stake(userBTokens);
+
+        vm.stopPrank();
     }
 }
 
 
 contract StateStakedT10Test is StateStakedT10 {
     
-    function testTimeWeightCalculation() public {
+    function testUserTimeWeightCalculation() public {
 
-        uint256 timeWeightGetter = pool.getAddressTimeWeight(userA);
+        uint256 cumulativeWeightGetter = pool.getAddressTimeWeight(userA);
 
         //calc.
         uint256 timeDelta = 10 - 0;
-        uint256 timeWeightCalc = timeDelta * userATokens;
+        uint256 cumulativeWeightCalc = timeDelta * userATokens;
 
-        assertEq(timeWeightGetter, timeWeightCalc);
+        assertEq(cumulativeWeightGetter, cumulativeWeightCalc);
 
         // exec. state transition
         vm.prank(userA);
         pool.unstake(userATokens);
 
         // get user data
-        (uint256 amount, uint256 timeWeightedStored, uint256 lastUpdateTimestamp) = pool.users(userA);
+        SimpleStaking.Data memory userData = pool.getUser(userA);
         
-        assertEq(amount, 0);
-        assertEq(timeWeightedStored, (userATokens * 10));
-        assertEq(lastUpdateTimestamp, 10);
+        assertEq(userData.amount, 0);
+        assertEq(userData.cumulativeWeight, (userATokens * 10));
+        assertEq(userData.lastUpdateTimestamp, 10);
 
-        assertEq(timeWeightedStored, timeWeightCalc);
+        assertEq(userData.cumulativeWeight, cumulativeWeightCalc);
         
     }
+
+    function testPoolTimeWeightCalculation() public {
+
+        assert(pool.getPoolLastUpdateTimestamp() == 10);
+
+        uint256 totalWeight = pool.getTotalCumulativeWeight();
+        uint256 totalStaked = pool.getTotalStaked();
+
+        // user weight == pool weight
+        uint256 userWeight = userATokens * 10;
+
+        assertEq(totalWeight, userWeight);
+        assertEq(totalStaked, userATokens + userBTokens);
+
+    }
+
 }
