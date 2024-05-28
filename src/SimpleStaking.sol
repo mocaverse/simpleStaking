@@ -4,10 +4,6 @@ pragma solidity ^0.8.20;
 //import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {Pausable} from "openzeppelin-contracts/contracts/utils/Pausable.sol";
-import {Ownable2Step, Ownable} from  "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
-
-
 contract SimpleStaking {
     using SafeERC20 for IERC20;
 
@@ -54,7 +50,7 @@ contract SimpleStaking {
             }
         }
         
-        // close the books
+        // book user's previous 
         if(userData.amount > 0){
             if(block.timestamp > userData.lastUpdateTimestamp){
 
@@ -63,11 +59,13 @@ contract SimpleStaking {
 
                 // update user
                 userData.cumulativeWeight += unbookedWeight;
-                userData.lastUpdateTimestamp = block.timestamp;
             }
         }
 
-        // book new amount
+        // update user timestamp
+        userData.lastUpdateTimestamp = block.timestamp;
+
+        // update state 
         userData.amount += amount;
         _totalStaked += amount;
 
@@ -153,12 +151,14 @@ contract SimpleStaking {
         Data memory userData = _users[user];
 
         // calc. unbooked
-        if(block.timestamp > userData.lastUpdateTimestamp){
+        if(userData.amount > 0) {
+            if(block.timestamp > userData.lastUpdateTimestamp){
 
-            uint256 timeDelta = block.timestamp - userData.lastUpdateTimestamp;
+                uint256 timeDelta = block.timestamp - userData.lastUpdateTimestamp;
 
-            uint256 unbookedWeight = userData.amount * timeDelta;
-            return (userData.cumulativeWeight + unbookedWeight);
+                uint256 unbookedWeight = userData.amount * timeDelta;
+                return (userData.cumulativeWeight + unbookedWeight);
+            }
         }
 
         // updated to latest, nothing unbooked 
