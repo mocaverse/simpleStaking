@@ -23,7 +23,7 @@ contract SimpleStaking {
     mapping(address user => Data userData) internal _users;
 
     // events 
-    event Staked(address indexed user, uint256 amount);
+    event Staked(address indexed onBehalfOf, address indexed msgSender, uint256 amount);
     event Unstaked(address indexed user, uint256 amount);
 
 
@@ -32,10 +32,11 @@ contract SimpleStaking {
         MOCA_TOKEN = IERC20(mocaToken);
     }
 
-    function stake(uint256 amount) external {
+    function stake(address onBehalfOf, uint256 amount) external {
+        require(amount > 0, "Invalid amount");
 
         // cache
-        Data memory userData = _users[msg.sender];
+        Data memory userData = _users[onBehalfOf];
         
         // update pool
         if(_totalStaked > 0){
@@ -64,20 +65,21 @@ contract SimpleStaking {
         // update user timestamp
         userData.lastUpdateTimestamp = block.timestamp;
 
-        // update state 
+        // book inflow
         userData.amount += amount;
         _totalStaked += amount;
 
         // update storage
-        _users[msg.sender] = userData;
+        _users[onBehalfOf] = userData;
 
-        emit Staked(msg.sender, amount);
+        emit Staked(onBehalfOf, msg.sender, amount);
  
         // grab MOCA
         MOCA_TOKEN.safeTransferFrom(msg.sender, address(this), amount);
     }
 
     function unstake(uint256 amount) external {
+        require(amount > 0, "Invalid amount");
 
         // cache
         Data memory userData = _users[msg.sender];
@@ -106,9 +108,11 @@ contract SimpleStaking {
 
                 // update user
                 userData.cumulativeWeight += unbookedWeight;
-                userData.lastUpdateTimestamp = block.timestamp;
             }
         }
+
+        // update user timestamp
+        userData.lastUpdateTimestamp = block.timestamp;
 
         // book outflow
         userData.amount -= amount;
@@ -145,7 +149,7 @@ contract SimpleStaking {
         return address(MOCA_TOKEN);
     }
 
-    function getAddressTimeWeight(address user) external view returns(uint256) {
+    function getUserCumulativeWeight(address user) external view returns(uint256) {
         // cache
         Data memory userData = _users[user];
 
@@ -164,7 +168,7 @@ contract SimpleStaking {
         return userData.cumulativeWeight;
     }
 
-    function getPoolTimeWeight() external view returns(uint256) {
+    function getPoolCumulativeWeight() external view returns(uint256) {
         // calc. unbooked
         if(block.timestamp > _poolLastUpdateTimestamp){
 
