@@ -27,6 +27,7 @@ interface IMoca {
     function approve(address, uint256) external;
 }
 
+/*
 contract MintStake is Script {
 
     function run() public {
@@ -42,5 +43,37 @@ contract MintStake is Script {
         vm.stopBroadcast();
     }
 }
+*/
 
 // forge script script/DeployTest.s.sol:MintStake --rpc-url sepolia --broadcast -vvvv
+
+contract StakeBehalf is Script {
+
+    function run() public {
+
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        vm.startBroadcast(deployerPrivateKey);
+
+        IMoca(0x5667424802Ef74C314e7adbBa6fA669999d8137D).mint(10 ether);
+        IMoca(0x5667424802Ef74C314e7adbBa6fA669999d8137D).approve(0x2EF1b6BcFf31b64ee4Fd5A3CF9e7b58a2eaea8D5, 10 ether);
+
+        address[] memory users = new address[](5);
+            users[0] = 0x5667424802Ef74C314e7adbBa6fA669999d8137D;
+            users[1] = 0x5667424802Ef74C314e7adbBa6fA669999d8137D;
+            users[2] = 0x5667424802Ef74C314e7adbBa6fA669999d8137D;
+            users[3] = 0x5667424802Ef74C314e7adbBa6fA669999d8137D;
+            users[4] = 0x5667424802Ef74C314e7adbBa6fA669999d8137D;
+
+        uint256[] memory amounts = new uint256[](5);
+            amounts[0] = 5 ether;
+            amounts[1] = 5 ether;
+            amounts[2] = 5 ether;
+            amounts[3] = 5 ether;
+            amounts[4] = 5 ether;
+
+
+        SimpleStaking(0x2EF1b6BcFf31b64ee4Fd5A3CF9e7b58a2eaea8D5).stakeBehalf(users, amounts);
+
+        vm.stopBroadcast();
+    }
+}

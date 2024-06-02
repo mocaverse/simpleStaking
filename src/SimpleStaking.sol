@@ -127,53 +127,53 @@ contract SimpleStaking {
         MOCA_TOKEN.safeTransfer(msg.sender, amount);
     }
 
-    function stakeBehalf(address[] users, uint256[] amount) external {
+    function stakeBehalf(address[] memory users, uint256[] memory amounts) external {
         uint256 length = users.length;
         require(length > 0, "Empty array");
         require(length <= 5, "Array max length exceeded");
 
         for (uint256 i; i < length; ++i){
             address onBehalfOf = users[i];
+            uint256 amount = amounts[i];
 
             // cache
             Data memory userData = _users[onBehalfOf];
         
-        // update pool
-        if(_totalStaked > 0){
-            if(block.timestamp > _poolLastUpdateTimestamp){
+            // update pool
+            if(_totalStaked > 0){
+                if(block.timestamp > _poolLastUpdateTimestamp){
 
-                uint256 timeDelta = block.timestamp - _poolLastUpdateTimestamp;
-                uint256 unbookedWeight = timeDelta * _totalStaked;
+                    uint256 timeDelta = block.timestamp - _poolLastUpdateTimestamp;
+                    uint256 unbookedWeight = timeDelta * _totalStaked;
 
-                _totalCumulativeWeight += unbookedWeight;
-                _poolLastUpdateTimestamp = block.timestamp;
+                    _totalCumulativeWeight += unbookedWeight;
+                    _poolLastUpdateTimestamp = block.timestamp;
+                }
             }
-        }
         
-        // book user's previous 
-        if(userData.amount > 0){
-            if(block.timestamp > userData.lastUpdateTimestamp){
+            // book user's previous 
+            if(userData.amount > 0){
+                if(block.timestamp > userData.lastUpdateTimestamp){
 
-                uint256 timeDelta = block.timestamp - userData.lastUpdateTimestamp;
-                uint256 unbookedWeight = timeDelta * userData.amount;
+                    uint256 timeDelta = block.timestamp - userData.lastUpdateTimestamp;
+                    uint256 unbookedWeight = timeDelta * userData.amount;
 
-                // update user
-                userData.cumulativeWeight += unbookedWeight;
+                    // update user
+                    userData.cumulativeWeight += unbookedWeight;
+                }
             }
-        }
 
-        // update user timestamp
-        userData.lastUpdateTimestamp = block.timestamp;
+            // update user timestamp
+            userData.lastUpdateTimestamp = block.timestamp;
 
-        // book inflow
-        userData.amount += amount;
-        _totalStaked += amount;
+            // book inflow
+            userData.amount += amount;
+            _totalStaked += amount;
 
-        // update storage
-        _users[onBehalfOf] = userData;
+            // update storage
+            _users[onBehalfOf] = userData;
 
-        emit Staked(onBehalfOf, msg.sender, amount);
-
+            emit Staked(onBehalfOf, msg.sender, amount);
         }
         
     }
