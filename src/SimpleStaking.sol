@@ -127,6 +127,57 @@ contract SimpleStaking {
         MOCA_TOKEN.safeTransfer(msg.sender, amount);
     }
 
+    function stakeBehalf(address[] users, uint256[] amount) external {
+        uint256 length = users.length;
+        require(length > 0, "Empty array");
+        require(length <= 5, "Array max length exceeded");
+
+        for (uint256 i; i < length; ++i){
+            address onBehalfOf = users[i];
+
+            // cache
+            Data memory userData = _users[onBehalfOf];
+        
+        // update pool
+        if(_totalStaked > 0){
+            if(block.timestamp > _poolLastUpdateTimestamp){
+
+                uint256 timeDelta = block.timestamp - _poolLastUpdateTimestamp;
+                uint256 unbookedWeight = timeDelta * _totalStaked;
+
+                _totalCumulativeWeight += unbookedWeight;
+                _poolLastUpdateTimestamp = block.timestamp;
+            }
+        }
+        
+        // book user's previous 
+        if(userData.amount > 0){
+            if(block.timestamp > userData.lastUpdateTimestamp){
+
+                uint256 timeDelta = block.timestamp - userData.lastUpdateTimestamp;
+                uint256 unbookedWeight = timeDelta * userData.amount;
+
+                // update user
+                userData.cumulativeWeight += unbookedWeight;
+            }
+        }
+
+        // update user timestamp
+        userData.lastUpdateTimestamp = block.timestamp;
+
+        // book inflow
+        userData.amount += amount;
+        _totalStaked += amount;
+
+        // update storage
+        _users[onBehalfOf] = userData;
+
+        emit Staked(onBehalfOf, msg.sender, amount);
+
+        }
+        
+    }
+
     //------ getters ------
 
     function getUser(address user) external view returns(Data memory) {
