@@ -305,8 +305,5 @@ contract StateT12Test is StateT12 {
         assertEq(poolLastUpdateTimestamp, 12);
 
         assertEq(totalCumulativeWeight, cumulativeWeightCalc);
-
-
     }
-
 }
