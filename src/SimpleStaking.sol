@@ -133,7 +133,6 @@ contract SimpleStaking {
         _poolLastUpdateTimestamp = block.timestamp;
     }
 
-    // note: does not update user timestamp
     function _updateUserCumulativeWeight(Data memory userData) internal returns(Data memory) {
 
         if(userData.amount > 0){
