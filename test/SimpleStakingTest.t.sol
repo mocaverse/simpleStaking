@@ -72,7 +72,7 @@ contract StateZeroTest is StateZero {
 
         // check events
         vm.expectEmit(true, true, false, false);
-        emit Staked(userA, userATokens);
+        emit Staked(someUser, userA, userATokens);
 
         vm.prank(userA);
         pool.stake(someUser, userATokens);
@@ -138,8 +138,8 @@ contract StateT01Test is StateT01 {
     }
 
     function testGetPoolTimeCalculation() public {
-        // getPoolTimeWeight should return the same value as _totalCumulativeWeight if _poolLastUpdateTimestamp and block.timestamp are the same.
-        // unbookedWeight should be o
+        // getPoolCumulativeWeight should return the same value as _totalCumulativeWeight if _poolLastUpdateTimestamp and block.timestamp are the same.
+        // unbookedWeight should be 0
 
         assertEq(pool.getPoolCumulativeWeight(), pool.getTotalCumulativeWeight());
     }
@@ -171,7 +171,7 @@ contract StateT10Test is StateT10 {
     
     function testUserATimeWeightCalculation() public {
 
-        uint256 cumulativeWeightGetter = pool.getAddressTimeWeight(userA);
+        uint256 cumulativeWeightGetter = pool.getUserCumulativeWeight(userA);
 
         //calc.
         uint256 timeDelta = 10 - 1;
@@ -196,18 +196,19 @@ contract StateT10Test is StateT10 {
 
     function testPoolTimeWeightCalculation() public {
         // pool not updated
-        assert(pool.getPoolLastUpdateTimestamp() == 0);
+        assert(pool.getPoolLastUpdateTimestamp() == 1);
 
         uint256 totalStaked = pool.getTotalStaked();
-        uint256 totalPoolWeight = pool.getPoolTimeWeight();
+        uint256 totalPoolWeight = pool.getPoolCumulativeWeight();
         uint256 cumulativeWeight = pool.getTotalCumulativeWeight();
-
+        
+        // staked at t=1
+        uint256 userWeight = userATokens * (10 - 1);
+        
         // user weight == pool weight
-        uint256 userWeight = userATokens * 10;
-
         assertEq(totalPoolWeight, userWeight);
         assertEq(totalStaked, userATokens);
-        assertEq(cumulativeWeight, 0);
+        assertEq(cumulativeWeight, 0);  // 0 since no txn since stake
     }
 }
 
@@ -231,11 +232,11 @@ contract StateT11Test is StateT11 {
         assert(pool.getPoolLastUpdateTimestamp() == 11);
 
         uint256 totalStaked = pool.getTotalStaked();
-        uint256 totalPoolWeight = pool.getPoolTimeWeight();
+        uint256 totalPoolWeight = pool.getPoolCumulativeWeight();
         uint256 cumulativeWeight = pool.getTotalCumulativeWeight();
 
         // user weight == pool weight
-        uint256 userWeight = userATokens * 11;
+        uint256 userWeight = userATokens * (11 - 1);
 
         assertEq(totalPoolWeight, userWeight);
         assertEq(totalStaked, userATokens +  userBTokens/2);
@@ -251,7 +252,7 @@ contract StateT11Test is StateT11 {
         assertEq(userData.cumulativeWeight, 0);
         assertEq(userData.lastUpdateTimestamp, 11);
 
-        uint256 cumulativeWeightGetter = pool.getAddressTimeWeight(userB);
+        uint256 cumulativeWeightGetter = pool.getUserCumulativeWeight(userB);
 
         assertEq(cumulativeWeightGetter, 0);
     }
@@ -282,27 +283,30 @@ contract StateT12Test is StateT12 {
         assertEq(userData.lastUpdateTimestamp, 12);
 
         // get pool data
-        uint256 cumulativeWeightGetter = pool.getUserCumulativeWeight(userB);
+        uint256 userBWeight = pool.getUserCumulativeWeight(userB);
     
         uint256 totalStaked = pool.getTotalStaked();
         uint256 poolLastUpdateTimestamp = pool.getPoolLastUpdateTimestamp();
 
+        /**
+            totalCumulativeWeight
+
+            t1: userA -> stakes 20 ether;
+            t11: userB -> stakes 25 ether;
+            t12: userB -> stakes 25 ether;
+         */
+
         // calc weight increment
         uint256 totalCumulativeWeight = pool.getTotalCumulativeWeight();
-        uint256 cumulativeWeightCalc = (timeDelta * userATokens) + (); 
+        uint256 cumulativeWeightCalc = ((12 - 1) * userATokens) + ((12 - 11) * userBTokens/2); 
 
-        assertEq(cumulativeWeightGetter, (userBTokens/2 * 1));
+        assertEq(userBWeight, (userBTokens/2 * (12 - 11)));
         assertEq(totalStaked, userATokens + userBTokens);
         assertEq(poolLastUpdateTimestamp, 12);
-        assertEq(totalCumulativeWeight, );
+
+        assertEq(totalCumulativeWeight, cumulativeWeightCalc);
+
+
     }
 
 }
-
-/**
-When a user stakes a non-zero amount and has a non-zero staking balance before:
-userData.cumulativeWeight should be incremented by pre-update balance * (now - pre-update userData.lastUpdateTimestamp)
-_totalCumulativeWeight should  be incremented by  pre-update _totalStaked * (now - pre-update _poolLastUpdateTimestamp)
-
-
- */

@@ -58,11 +58,11 @@ contract StakeBehalf is Script {
         IMoca(0x5667424802Ef74C314e7adbBa6fA669999d8137D).approve(0x2EF1b6BcFf31b64ee4Fd5A3CF9e7b58a2eaea8D5, 10 ether);
 
         address[] memory users = new address[](5);
-            users[0] = 0x5667424802Ef74C314e7adbBa6fA669999d8137D;
-            users[1] = 0x5667424802Ef74C314e7adbBa6fA669999d8137D;
-            users[2] = 0x5667424802Ef74C314e7adbBa6fA669999d8137D;
-            users[3] = 0x5667424802Ef74C314e7adbBa6fA669999d8137D;
-            users[4] = 0x5667424802Ef74C314e7adbBa6fA669999d8137D;
+            users[0] = 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db;
+            users[1] = 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db;
+            users[2] = 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db;
+            users[3] = 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db;
+            users[4] = 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db;
 
         uint256[] memory amounts = new uint256[](5);
             amounts[0] = 5 ether;
@@ -72,8 +72,10 @@ contract StakeBehalf is Script {
             amounts[4] = 5 ether;
 
 
-        SimpleStaking(0x2EF1b6BcFf31b64ee4Fd5A3CF9e7b58a2eaea8D5).stakeBehalf(users, amounts);
+        SimpleStaking(0xa970B29C8634A4D50f0ae1C29724a09399ceF2D9).stakeBehalf(users, amounts);
 
         vm.stopBroadcast();
     }
 }
+
+// forge script script/DeployTest.s.sol:StakeBehalf --rpc-url sepolia --broadcast -vvvv

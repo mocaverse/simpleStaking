@@ -46,7 +46,6 @@ contract SimpleStaking {
                 uint256 unbookedWeight = timeDelta * _totalStaked;
 
                 _totalCumulativeWeight += unbookedWeight;
-                _poolLastUpdateTimestamp = block.timestamp;
             }
         }
         
@@ -62,8 +61,9 @@ contract SimpleStaking {
             }
         }
 
-        // update user timestamp
+        // update timestamps
         userData.lastUpdateTimestamp = block.timestamp;
+        _poolLastUpdateTimestamp = block.timestamp;
 
         // book inflow
         userData.amount += amount;
