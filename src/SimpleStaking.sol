@@ -32,44 +32,24 @@ contract SimpleStaking {
         MOCA_TOKEN = IERC20(mocaToken);
     }
 
+
     function stake(address onBehalfOf, uint256 amount) external {
         require(amount > 0, "Invalid amount");
 
         // cache
-        Data memory userData = _users[onBehalfOf];
+        Data memory userData_ = _users[onBehalfOf];
         
-        // update pool
-        if(_totalStaked > 0){
-            if(block.timestamp > _poolLastUpdateTimestamp){
+        // book pool's previous
+        _updatePool();
 
-                uint256 timeDelta = block.timestamp - _poolLastUpdateTimestamp;
-                uint256 unbookedWeight = timeDelta * _totalStaked;
-
-                _totalCumulativeWeight += unbookedWeight;
-            }
-        }
-        
-        // book user's previous 
-        if(userData.amount > 0){
-            if(block.timestamp > userData.lastUpdateTimestamp){
-
-                uint256 timeDelta = block.timestamp - userData.lastUpdateTimestamp;
-                uint256 unbookedWeight = timeDelta * userData.amount;
-
-                // update user
-                userData.cumulativeWeight += unbookedWeight;
-            }
-        }
-
-        // update timestamps
-        userData.lastUpdateTimestamp = block.timestamp;
-        _poolLastUpdateTimestamp = block.timestamp;
+        // book user's previous
+        Data memory userData = _updateUserCumulativeWeight(userData_);
 
         // book inflow
         userData.amount += amount;
         _totalStaked += amount;
 
-        // update storage
+        // user: update storage
         _users[onBehalfOf] = userData;
 
         emit Staked(onBehalfOf, msg.sender, amount);
@@ -82,43 +62,22 @@ contract SimpleStaking {
         require(amount > 0, "Invalid amount");
 
         // cache
-        Data memory userData = _users[msg.sender];
+        Data memory userData_ = _users[msg.sender];
 
         // sanity checks
-        require(userData.amount >= amount, "Insufficient user balance");
+        require(userData_.amount >= amount, "Insufficient user balance");
 
-        // update pool
-        if(_totalStaked > 0){
-            if(block.timestamp > _poolLastUpdateTimestamp){
+        // book pool's previous
+        _updatePool();
 
-                uint256 timeDelta = block.timestamp - _poolLastUpdateTimestamp;
-                uint256 unbookedWeight = timeDelta * _totalStaked;
-
-                _totalCumulativeWeight += unbookedWeight;
-                _poolLastUpdateTimestamp = block.timestamp;
-            }
-        }
-
-        // close the books
-        if(userData.amount > 0){
-            if(block.timestamp > userData.lastUpdateTimestamp){
-
-                uint256 timeDelta = block.timestamp - userData.lastUpdateTimestamp;
-                uint256 unbookedWeight = timeDelta * userData.amount;
-
-                // update user
-                userData.cumulativeWeight += unbookedWeight;
-            }
-        }
-
-        // update user timestamp
-        userData.lastUpdateTimestamp = block.timestamp;
+        // book user's previous
+        Data memory userData = _updateUserCumulativeWeight(userData_);
 
         // book outflow
         userData.amount -= amount;
-        _totalStaked -= amount;
+        _totalStaked -= amount;      // sstore 
 
-        // update state 
+        // user: update state 
         _users[msg.sender] = userData;
 
         emit Unstaked(msg.sender, amount);
@@ -137,46 +96,61 @@ contract SimpleStaking {
             uint256 amount = amounts[i];
 
             // cache
-            Data memory userData = _users[onBehalfOf];
+            Data memory userData_ = _users[onBehalfOf];
         
-            // update pool
-            if(_totalStaked > 0){
-                if(block.timestamp > _poolLastUpdateTimestamp){
-
-                    uint256 timeDelta = block.timestamp - _poolLastUpdateTimestamp;
-                    uint256 unbookedWeight = timeDelta * _totalStaked;
-
-                    _totalCumulativeWeight += unbookedWeight;
-                    _poolLastUpdateTimestamp = block.timestamp;
-                }
-            }
+            // book pool's previous
+            _updatePool();
         
-            // book user's previous 
-            if(userData.amount > 0){
-                if(block.timestamp > userData.lastUpdateTimestamp){
-
-                    uint256 timeDelta = block.timestamp - userData.lastUpdateTimestamp;
-                    uint256 unbookedWeight = timeDelta * userData.amount;
-
-                    // update user
-                    userData.cumulativeWeight += unbookedWeight;
-                }
-            }
-
-            // update user timestamp
-            userData.lastUpdateTimestamp = block.timestamp;
+            // book user's previous
+            Data memory userData = _updateUserCumulativeWeight(userData_);
 
             // book inflow
             userData.amount += amount;
-            _totalStaked += amount;
+            _totalStaked += amount;         //sstore
 
-            // update storage
+            // user: update storage
             _users[onBehalfOf] = userData;
 
             emit Staked(onBehalfOf, msg.sender, amount);
         }
         
     }
+
+    //------ internal ------
+
+    function _updatePool() internal {
+
+        if(_totalStaked > 0){
+            if(block.timestamp > _poolLastUpdateTimestamp){
+
+                uint256 timeDelta = block.timestamp - _poolLastUpdateTimestamp;
+                uint256 unbookedWeight = timeDelta * _totalStaked;
+
+                _totalCumulativeWeight += unbookedWeight;
+            }
+        }
+
+        _poolLastUpdateTimestamp = block.timestamp;
+    }
+
+    // note: does not update user timestamp
+    function _updateUserCumulativeWeight(Data memory userData) internal returns(Data memory) {
+
+        if(userData.amount > 0){
+            if(block.timestamp > userData.lastUpdateTimestamp){
+
+                uint256 timeDelta = block.timestamp - userData.lastUpdateTimestamp;
+                uint256 unbookedWeight = timeDelta * userData.amount;
+
+                // update user
+                userData.cumulativeWeight += unbookedWeight;
+            }
+        }
+
+        userData.lastUpdateTimestamp = block.timestamp;
+        return userData;
+    }
+
 
     //------ getters ------
 
