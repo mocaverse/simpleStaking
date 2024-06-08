@@ -8,7 +8,9 @@ contract SimpleStaking {
 
     // interfaces 
     IERC20 internal immutable MOCA_TOKEN;
-    
+    // startTime
+    uint256 internal immutable _startTime;
+
     // pool data
     uint256 internal _totalStaked;
     uint256 internal _totalCumulativeWeight;
@@ -25,15 +27,22 @@ contract SimpleStaking {
     // events 
     event Staked(address indexed onBehalfOf, address indexed msgSender, uint256 amount);
     event Unstaked(address indexed user, uint256 amount);
+    event StakedBehalf(address[] indexed users, uint256[] amounts);
 
 
-    constructor(address mocaToken){
+    constructor(address mocaToken, uint256 startTime_){
         
         MOCA_TOKEN = IERC20(mocaToken);
+        _startTime = startTime_;
     }
 
 
+    /*//////////////////////////////////////////////////////////////
+                                EXTERNAL
+    //////////////////////////////////////////////////////////////*/
+
     function stake(address onBehalfOf, uint256 amount) external {
+        require(_startTime <= block.timestamp, "Not started");
         require(amount > 0, "Invalid amount");
 
         // cache
@@ -59,6 +68,7 @@ contract SimpleStaking {
     }
 
     function unstake(uint256 amount) external {
+        require(_startTime <= block.timestamp, "Not started");
         require(amount > 0, "Invalid amount");
 
         // cache
@@ -110,13 +120,15 @@ contract SimpleStaking {
 
             // user: update storage
             _users[onBehalfOf] = userData;
-
-            emit Staked(onBehalfOf, msg.sender, amount);
         }
         
+        event StakedBehalf(address[] users, uint256[] amounts);
     }
 
-    //------ internal ------
+
+    /*//////////////////////////////////////////////////////////////
+                                INTERNAL
+    //////////////////////////////////////////////////////////////*/
 
     function _updatePool() internal {
 
@@ -151,7 +163,9 @@ contract SimpleStaking {
     }
 
 
-    //------ getters ------
+    /*//////////////////////////////////////////////////////////////
+                                GETTERS
+    //////////////////////////////////////////////////////////////*/
 
     function getUser(address user) external view returns(Data memory) {
         return _users[user];
