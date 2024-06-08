@@ -20,9 +20,12 @@ abstract contract StateZero is Test {
     uint256 public userBTokens;
     uint256 public userCTokens;
 
+    uint256 public startTime = 0;
+
     // events 
     event Staked(address indexed onBehalfOf, address indexed msgSender, uint256 amount);
     event Unstaked(address indexed user, uint256 amount);
+    event StakedBehalf(address[] indexed users, uint256[] indexed amounts);
 
     function setUp() public virtual {
     
@@ -39,7 +42,7 @@ abstract contract StateZero is Test {
 
         //contracts
         mocaToken = new ERC20Mock();    
-        pool = new SimpleStaking(address(mocaToken));
+        pool = new SimpleStaking(address(mocaToken), startTime, owner);
 
         // mint tokens
         mocaToken.mint(userA, userATokens);

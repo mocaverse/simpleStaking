@@ -2,8 +2,9 @@
 pragma solidity 0.8.24;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Ownable2Step, Ownable} from "./../lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 
-contract SimpleStaking {
+contract SimpleStaking is Ownable2Step {
     using SafeERC20 for IERC20;
 
     // interfaces 
@@ -11,10 +12,10 @@ contract SimpleStaking {
     // startTime
     uint256 internal immutable _startTime;
 
-    // pool data
+    // pool data 
     uint256 internal _totalStaked;
     uint256 internal _totalCumulativeWeight;
-    uint256 internal _poolLastUpdateTimestamp;
+    uint256 internal _poolLastUpdateTimestamp; //note: should 128 for packing?
 
     struct Data {
         uint256 amount;
@@ -27,10 +28,10 @@ contract SimpleStaking {
     // events 
     event Staked(address indexed onBehalfOf, address indexed msgSender, uint256 amount);
     event Unstaked(address indexed user, uint256 amount);
-    event StakedBehalf(address[] indexed users, uint256[] amounts);
+    event StakedBehalf(address[] indexed users, uint256[] indexed amounts);
 
 
-    constructor(address mocaToken, uint256 startTime_){
+    constructor(address mocaToken, uint256 startTime_, address owner) Ownable(owner){
         
         MOCA_TOKEN = IERC20(mocaToken);
         _startTime = startTime_;
@@ -41,6 +42,12 @@ contract SimpleStaking {
                                 EXTERNAL
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice User to stake MocaTokens
+     * @dev User can stake for another address of choice
+     * @param onBehalfOf Address for stake
+     * @param amount Tokens to stake, 1e8 precision
+     */
     function stake(address onBehalfOf, uint256 amount) external {
         require(_startTime <= block.timestamp, "Not started");
         require(amount > 0, "Invalid amount");
@@ -67,6 +74,10 @@ contract SimpleStaking {
         MOCA_TOKEN.safeTransferFrom(msg.sender, address(this), amount);
     }
 
+    /**
+     * @notice User to unstake MocaTokens
+     * @param amount Tokens to unstake, 1e8 precision
+     */
     function unstake(uint256 amount) external {
         require(_startTime <= block.timestamp, "Not started");
         require(amount > 0, "Invalid amount");
@@ -96,7 +107,13 @@ contract SimpleStaking {
         MOCA_TOKEN.safeTransfer(msg.sender, amount);
     }
 
-    function stakeBehalf(address[] memory users, uint256[] memory amounts) external {
+    /**
+     * @notice Owner to stake on behalf of users for distribution
+     * @dev Max array length: 5
+     * @param users Array of address 
+     * @param amounts Array of stake amounts, 1e18 precision
+     */
+    function stakeBehalf(address[] memory users, uint256[] memory amounts) external onlyOwner {
         uint256 length = users.length;
         require(length > 0, "Empty array");
         require(length <= 5, "Array max length exceeded");
@@ -122,7 +139,7 @@ contract SimpleStaking {
             _users[onBehalfOf] = userData;
         }
         
-        event StakedBehalf(address[] users, uint256[] amounts);
+        emit StakedBehalf(users, amounts);
     }
 
 
@@ -137,11 +154,13 @@ contract SimpleStaking {
 
                 uint256 timeDelta = block.timestamp - _poolLastUpdateTimestamp;
                 uint256 unbookedWeight = timeDelta * _totalStaked;
-
+                
+                // sstore
                 _totalCumulativeWeight += unbookedWeight;
             }
         }
-
+        
+        // sstore
         _poolLastUpdateTimestamp = block.timestamp;
     }
 
