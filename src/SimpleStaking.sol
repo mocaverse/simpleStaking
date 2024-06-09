@@ -118,6 +118,7 @@ contract SimpleStaking is Ownable2Step {
         require(length > 0, "Empty array");
         require(length <= 5, "Array max length exceeded");
 
+        uint256 totalAmount;
         for (uint256 i; i < length; ++i){
             address onBehalfOf = users[i];
             uint256 amount = amounts[i];
@@ -137,9 +138,15 @@ contract SimpleStaking is Ownable2Step {
 
             // user: update storage
             _users[onBehalfOf] = userData;
+
+            // increment totalAmount
+            totalAmount += amount;
         }
         
         emit StakedBehalf(users, amounts);
+
+        // grab MOCA
+        MOCA_TOKEN.safeTransferFrom(msg.sender, address(this), totalAmount);
     }
 
 
@@ -186,26 +193,37 @@ contract SimpleStaking is Ownable2Step {
                                 GETTERS
     //////////////////////////////////////////////////////////////*/
 
-    function getUser(address user) external view returns(Data memory) {
-        return _users[user];
-    } 
-
-    function getTotalStaked() external view returns(uint256) {
-        return _totalStaked;
-    }
-
-    function getTotalCumulativeWeight() external view returns(uint256) {
-        return _totalCumulativeWeight;
-    }
-
-    function getPoolLastUpdateTimestamp() external view returns(uint256) {
-        return _poolLastUpdateTimestamp;
-    }
-
+    ///@notice returns moca token address    
     function getMocaToken() external view returns(address) {
         return address(MOCA_TOKEN);
     }
 
+    ///@notice returns _startTime
+    function getStartTime() external view returns(uint256) {
+        return _startTime;
+    }
+
+    ///@notice returns _totalStaked
+    function getTotalStaked() external view returns(uint256) {
+        return _totalStaked;
+    }
+
+    ///@notice returns _totalCumulativeWeight
+    function getTotalCumulativeWeight() external view returns(uint256) {
+        return _totalCumulativeWeight;
+    }
+
+    ///@notice returns _poolLastUpdateTimestamp
+    function getPoolLastUpdateTimestamp() external view returns(uint256) {
+        return _poolLastUpdateTimestamp;
+    }
+
+    ///@notice returns user data struct
+    function getUser(address user) external view returns(Data memory) {
+        return _users[user];
+    } 
+
+    ///@notice returns user's cumulative weight
     function getUserCumulativeWeight(address user) external view returns(uint256) {
         // cache
         Data memory userData = _users[user];
@@ -225,6 +243,7 @@ contract SimpleStaking is Ownable2Step {
         return userData.cumulativeWeight;
     }
 
+    ///@notice returns pool's total cumulative weight (incl. pending)
     function getPoolCumulativeWeight() external view returns(uint256) {
         // calc. unbooked
         if(block.timestamp > _poolLastUpdateTimestamp){

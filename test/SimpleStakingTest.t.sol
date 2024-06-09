@@ -19,8 +19,9 @@ abstract contract StateZero is Test {
     uint256 public userATokens;
     uint256 public userBTokens;
     uint256 public userCTokens;
+    uint256 public ownerTokens;
 
-    uint256 public startTime = 0;
+    uint256 public startTime = 1;
 
     // events 
     event Staked(address indexed onBehalfOf, address indexed msgSender, uint256 amount);
@@ -39,6 +40,7 @@ abstract contract StateZero is Test {
         userATokens = 20 ether;
         userBTokens = 50 ether;
         userCTokens = 80 ether;
+        ownerTokens = 50 ether;
 
         //contracts
         mocaToken = new ERC20Mock();    
@@ -48,6 +50,7 @@ abstract contract StateZero is Test {
         mocaToken.mint(userA, userATokens);
         mocaToken.mint(userB, userBTokens);
         mocaToken.mint(userC, userCTokens);
+        mocaToken.mint(owner, ownerTokens);
 
         // allowance
         vm.prank(userA);
@@ -56,20 +59,105 @@ abstract contract StateZero is Test {
         vm.prank(userB);
         mocaToken.approve(address(pool), userBTokens);
 
+        vm.prank(owner);
+        mocaToken.approve(address(pool), ownerTokens);
+
         // set time
         vm.warp(0);
     }
 
 }
 
-
+//note: Users cannot interact. Staking not started
 contract StateZeroTest is StateZero {
+
+    function testUserCannotStake() public {
+        vm.prank(userA);
+        vm.expectRevert("Not started");
+        pool.unstake(userATokens);       
+    }
 
     function testUserCannotUnstake() public {
         vm.prank(userA);
-        vm.expectRevert("Insufficient user balance");
+        vm.expectRevert("Not started");
         pool.unstake(userATokens);
     }
+
+    function testTokenGetter() public {
+       address token = pool.getMocaToken();
+       assert(address(mocaToken) == token);
+    }
+
+    function testGetTotalStakedDoesNotChangeOnDirectTransfer() public {
+        vm.prank(userA);
+        mocaToken.transfer(address(pool), userATokens);
+
+        assertEq(pool.getTotalStaked(), 0);
+    }
+
+    function testOwnerCanStakeBehalf() public {
+
+        address[] memory users = new address[](5);
+            users[0] = address(1);
+            users[1] = address(2);
+            users[2] = address(3);
+            users[3] = address(4);
+            users[4] = address(5);
+        
+        uint256[] memory amounts = new uint256[](5);
+            amounts[0] = 10 ether;
+            amounts[1] = 10 ether;
+            amounts[2] = 10 ether;
+            amounts[3] = 10 ether;
+            amounts[4] = 10 ether;
+
+        // check events
+        vm.expectEmit(true, true, true, false);
+        emit StakedBehalf(users, amounts);
+
+        vm.prank(owner);
+        pool.stakeBehalf(users, amounts);
+
+        // assert: token transfers
+        assertEq(mocaToken.balanceOf(owner), 0);
+        assertEq(mocaToken.balanceOf(address(pool)), ownerTokens);
+
+        // assert: Pool data
+        assertEq(pool.getTotalStaked(), ownerTokens);
+        assertEq(pool.getPoolCumulativeWeight(), 0);
+
+        // assert: users
+        SimpleStaking.Data memory user1 = pool.getUser(address(1));
+        SimpleStaking.Data memory user2 = pool.getUser(address(2));
+        SimpleStaking.Data memory user3 = pool.getUser(address(3));
+        SimpleStaking.Data memory user4 = pool.getUser(address(4));
+        SimpleStaking.Data memory user5 = pool.getUser(address(5));
+
+        assertEq(user1.amount, 10 ether);
+        assertEq(user2.amount, 10 ether);
+        assertEq(user3.amount, 10 ether);
+        assertEq(user4.amount, 10 ether);
+        assertEq(user5.amount, 10 ether);
+
+        // users cannot unstake
+        vm.prank(address(1));
+        vm.expectRevert("Not started");
+        pool.unstake(10 ether);    
+    }
+}
+
+// note: time = 01. Users can stake/unstake
+abstract contract StateT01 is StateZero {
+
+    function setUp() public virtual override {
+        super.setUp();
+
+        vm.warp(1);
+
+    }
+}
+
+contract StateT01Test is StateT01 {
 
     function testUserCanStake(address someUser) public {
 
@@ -88,56 +176,12 @@ contract StateZeroTest is StateZero {
         
         assertEq(userData.amount, userATokens);
         assertEq(userData.cumulativeWeight, 0);
-        assertEq(userData.lastUpdateTimestamp, 0);
+        assertEq(userData.lastUpdateTimestamp, 1);
 
         // get pool data
         assertEq(pool.getPoolLastUpdateTimestamp(), userData.lastUpdateTimestamp);
         assertEq(pool.getTotalStaked(), userData.amount);
-    }
 
-    function testTokenGetter() public {
-       address token = pool.getMocaToken();
-       assert(address(mocaToken) == token);
-    }
-
-    function testGetTotalStakedDoesNotChangeOnDirectTransfer() public {
-        vm.prank(userA);
-        mocaToken.transfer(address(pool), userATokens);
-
-        assertEq(pool.getTotalStaked(), 0);
-    }
-}
-
-// note: time = 01. user A stakes to self
-abstract contract StateT01 is StateZero {
-
-    function setUp() public virtual override {
-        super.setUp();
-
-        vm.warp(1);
-
-        vm.prank(userA);
-        pool.stake(userA, userATokens);
-    }
-}
-
-contract StateT01Test is StateT01 {
-
-    function testUserCanUnstake() public {
-        
-        vm.prank(userA);
-        pool.unstake(userATokens);
-
-        assertEq(mocaToken.balanceOf(userA), userATokens);
-        assertEq(mocaToken.balanceOf(address(pool)), 0);
-
-        // get user data
-        SimpleStaking.Data memory userData = pool.getUser(userA);
-        
-        // just staked. weight should be 0
-        assertEq(userData.amount, 0);
-        assertEq(userData.cumulativeWeight, 0);
-        assertEq(userData.lastUpdateTimestamp, 1);
     }
 
     function testGetPoolTimeCalculation() public {
@@ -165,12 +209,32 @@ abstract contract StateT10 is StateT01 {
     function setUp() public virtual override {
         super.setUp();
 
+        vm.warp(1);
+            vm.prank(userA);
+            pool.stake(userA, userATokens);
+
         vm.warp(10);
     }
 }
 
-
 contract StateT10Test is StateT10 {
+
+    function testUserCanUnstake() public {
+        
+        vm.prank(userA);
+        pool.unstake(userATokens);
+
+        assertEq(mocaToken.balanceOf(userA), userATokens);
+        assertEq(mocaToken.balanceOf(address(pool)), 0);
+
+        // get user data
+        SimpleStaking.Data memory userData = pool.getUser(userA);
+        
+        // weight should be: timeDelta * amount = (10 - 1) * userATokens
+        assertEq(userData.amount, 0);
+        assertEq(userData.cumulativeWeight, ((10 - 1) * userATokens));
+        assertEq(userData.lastUpdateTimestamp, 10);
+    }
     
     function testUserATimeWeightCalculation() public {
 
