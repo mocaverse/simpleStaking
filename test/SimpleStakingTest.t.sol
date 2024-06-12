@@ -24,7 +24,7 @@ abstract contract StateZero is Test {
     uint256 public startTime = 1;
 
     // events 
-    event Staked(address indexed onBehalfOf, address indexed msgSender, uint256 amount);
+    event Staked(address indexed user, uint256 amount);
     event Unstaked(address indexed user, uint256 amount);
     event StakedBehalf(address[] indexed users, uint256[] indexed amounts);
 
@@ -159,20 +159,20 @@ abstract contract StateT01 is StateZero {
 
 contract StateT01Test is StateT01 {
 
-    function testUserCanStake(address someUser) public {
+    function testUserCanStake() public {
 
         // check events
         vm.expectEmit(true, true, false, false);
-        emit Staked(someUser, userA, userATokens);
+        emit Staked(userA, userATokens);
 
         vm.prank(userA);
-        pool.stake(someUser, userATokens);
+        pool.stake(userATokens);
 
         assertEq(mocaToken.balanceOf(userA), 0);
         assertEq(mocaToken.balanceOf(address(pool)), userATokens);
 
         // get user data
-        SimpleStaking.Data memory userData = pool.getUser(someUser);
+        SimpleStaking.Data memory userData = pool.getUser(userA);
         
         assertEq(userData.amount, userATokens);
         assertEq(userData.cumulativeWeight, 0);
@@ -211,7 +211,7 @@ abstract contract StateT10 is StateT01 {
 
         vm.warp(1);
             vm.prank(userA);
-            pool.stake(userA, userATokens);
+            pool.stake(userATokens);
 
         vm.warp(10);
     }
@@ -287,7 +287,7 @@ abstract contract StateT11 is StateT10 {
         vm.warp(11);
 
         vm.prank(userB);
-        pool.stake(userB, userBTokens/2);
+        pool.stake(userBTokens/2);
     }
 }
 
@@ -334,7 +334,7 @@ abstract contract StateT12 is StateT11 {
         vm.warp(12);
 
         vm.prank(userB);
-        pool.stake(userB, userBTokens/2);
+        pool.stake(userBTokens/2);
     }
 }
 

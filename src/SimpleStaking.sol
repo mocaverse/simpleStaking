@@ -49,7 +49,6 @@ contract SimpleStaking is Ownable2Step {
     /**
      * @notice User to stake MocaTokens
      * @dev User can stake for another address of choice
-     * @param onBehalfOf Address for stake
      * @param amount Tokens to stake, 1e8 precision
      */
     function stake(uint256 amount) external {
@@ -57,28 +56,19 @@ contract SimpleStaking is Ownable2Step {
 
         // cache
         Data memory userData_ = _users[msg.sender];
+   
+        // book pool's previous
+        _updatePool();
 
-        uint256 startTime = _startTime;
-        if(block.timestamp <= startTime){   //timeDelta = 0, @startTime
-
-            // floor startTime
-            user.lastUpdateTimestamp = startTime;
-
-        } else{
-            
-            // book pool's previous
-            _updatePool();
-
-            // book user's previous
-            Data memory userData = _updateUserCumulativeWeight(userData_);
-        }
-        
+        // book user's previous
+        Data memory userData = _updateUserCumulativeWeight(userData_);
+    
         // book inflow
         userData.amount += amount;
         _totalStaked += amount;
 
         // user: update storage
-        _users[onBehalfOf] = userData;
+        _users[msg.sender] = userData;
 
         emit Staked(msg.sender, amount);
  
@@ -137,7 +127,7 @@ contract SimpleStaking is Ownable2Step {
         _updatePool();
 
         uint256 totalAmount;
-        for (uint256 i; i < length; ++i){
+        for (uint256 i; i < usersLength; ++i){
             address onBehalfOf = users[i];
             uint256 amount = amounts[i];
 
@@ -174,7 +164,7 @@ contract SimpleStaking is Ownable2Step {
         if(_totalStaked > 0){
             if(block.timestamp > _poolLastUpdateTimestamp){
 
-                uint256 timeDelta = block.timestamp - _poolLastUpdateTimestamp;
+                uint256 timeDelta = _getTimeDelta(block.timestamp, _poolLastUpdateTimestamp);
                 uint256 unbookedWeight = timeDelta * _totalStaked;
                 
                 // sstore
@@ -187,11 +177,21 @@ contract SimpleStaking is Ownable2Step {
     }
 
     function _updateUserCumulativeWeight(Data memory userData) internal returns(Data memory) {
+        
+        // staking not started: return early
+        uint256 startTime = _startTime;
+        if (block.timestamp <= startTime) {
 
+            userData.lastUpdateTimestamp = block.timestamp;  
+            return userData;
+        }
+
+        // staking has begun
         if(userData.amount > 0){
             if(block.timestamp > userData.lastUpdateTimestamp){
-
-                uint256 timeDelta = block.timestamp - userData.lastUpdateTimestamp;
+                
+                // timeDelta: 0 if staking has not begun 
+                uint256 timeDelta = _getTimeDelta(block.timestamp, userData.lastUpdateTimestamp);
                 uint256 unbookedWeight = timeDelta * userData.amount;
 
                 // update user
@@ -203,6 +203,16 @@ contract SimpleStaking is Ownable2Step {
         return userData;
     }
 
+    function _getTimeDelta(uint256 to, uint256 from) internal view returns (uint256) {
+        // cache
+        uint256 startTime = _startTime;
+        
+        if(from < startTime){
+             from = startTime;
+        }
+
+        return (to - from);
+    }
 
     /*//////////////////////////////////////////////////////////////
                                 GETTERS
@@ -247,7 +257,7 @@ contract SimpleStaking is Ownable2Step {
         if(userData.amount > 0) {
             if(block.timestamp > userData.lastUpdateTimestamp){
 
-                uint256 timeDelta = block.timestamp - userData.lastUpdateTimestamp;
+                uint256 timeDelta = _getTimeDelta(block.timestamp, userData.lastUpdateTimestamp);
 
                 uint256 unbookedWeight = userData.amount * timeDelta;
                 return (userData.cumulativeWeight + unbookedWeight);
@@ -263,7 +273,7 @@ contract SimpleStaking is Ownable2Step {
         // calc. unbooked
         if(block.timestamp > _poolLastUpdateTimestamp){
 
-            uint256 timeDelta = block.timestamp - _poolLastUpdateTimestamp;
+            uint256 timeDelta = _getTimeDelta(block.timestamp, _poolLastUpdateTimestamp);
 
             uint256 unbookedWeight = _totalStaked * timeDelta;
             return (_totalCumulativeWeight + unbookedWeight);
