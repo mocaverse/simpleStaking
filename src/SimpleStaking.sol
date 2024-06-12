@@ -81,14 +81,13 @@ contract SimpleStaking is Ownable2Step {
      * @param amount Tokens to unstake, 1e8 precision
      */
     function unstake(uint256 amount) external {
-        require(_startTime <= block.timestamp, "Not started");
         require(amount > 0, "Invalid amount");
 
         // cache
         Data memory userData_ = _users[msg.sender];
 
         // sanity checks
-        require(userData_.amount >= amount, "Insufficient user balance");
+        require(userData_.amount >= amount, "Insufficient balance");
 
         // book pool's previous
         _updatePool();
@@ -208,7 +207,7 @@ contract SimpleStaking is Ownable2Step {
         uint256 startTime = _startTime;
         
         if(from < startTime){
-             from = startTime;
+            from = startTime;
         }
 
         return (to - from);

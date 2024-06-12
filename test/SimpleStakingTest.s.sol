@@ -64,23 +64,67 @@ abstract contract StateZero is Test {
 
         // set time
         vm.warp(0);
-    }
 
+    }
 }
 
-//note: Users cannot interact. Staking not started
+
+//note: Staking not started. Users can stake/unstake, but no cumWeight
 contract StateZeroTest is StateZero {
 
-    function testUserCannotStake() public {
+    function testUserCanStake() public {
+        
+        // check events
+        vm.expectEmit(true, true, false, false);
+        emit Staked(userA, userATokens);
+
         vm.prank(userA);
-        vm.expectRevert("Not started");
-        pool.unstake(userATokens);       
+        pool.stake(userATokens);
+
+        // tokens
+        assertEq(mocaToken.balanceOf(userA), 0);
+        assertEq(mocaToken.balanceOf(address(pool)), userATokens);
+
+        // get user data
+        SimpleStaking.Data memory userData = pool.getUser(userA);
+        
+        // user data
+        assertEq(userData.amount, userATokens);
+        assertEq(userData.cumulativeWeight, 0);
+        assertEq(userData.lastUpdateTimestamp, 0);
+
+        // pool data
+        assertEq(pool.getPoolLastUpdateTimestamp(), userData.lastUpdateTimestamp);
+        assertEq(pool.getTotalStaked(), userData.amount);
     }
 
-    function testUserCannotUnstake() public {
+    function testUserCanUnstake() public {
+        
         vm.prank(userA);
-        vm.expectRevert("Not started");
+        pool.stake(userATokens);
+
+        // check events
+        vm.expectEmit(true, false, false, false);
+        emit Unstaked(userA, userATokens);
+
+        vm.prank(userA);
         pool.unstake(userATokens);
+        
+        // tokens
+        assertEq(mocaToken.balanceOf(userA), userATokens);
+        assertEq(mocaToken.balanceOf(address(pool)), 0);
+
+        // get user data
+        SimpleStaking.Data memory userData = pool.getUser(userA);
+        
+        // user data 
+        assertEq(userData.amount, 0);
+        assertEq(userData.cumulativeWeight, 0);
+        assertEq(userData.lastUpdateTimestamp, 0);
+
+        // pool data
+        assertEq(pool.getPoolLastUpdateTimestamp(), 0);
+        assertEq(pool.getTotalStaked(), 0);
     }
 
     function testTokenGetter() public {
@@ -139,55 +183,49 @@ contract StateZeroTest is StateZero {
         assertEq(user4.amount, 10 ether);
         assertEq(user5.amount, 10 ether);
 
-        // users cannot unstake
-        vm.prank(address(1));
-        vm.expectRevert("Not started");
-        pool.unstake(10 ether);    
     }
+
 }
 
-// note: time = 01. Users can stake/unstake
+
+// note: time = 01. userA stakes
 abstract contract StateT01 is StateZero {
 
     function setUp() public virtual override {
         super.setUp();
 
         vm.warp(1);
-
+        
+        // userA stake
+        vm.prank(userA);
+        pool.stake(userATokens);
     }
 }
 
 contract StateT01Test is StateT01 {
 
-    function testUserCanStake() public {
-
-        // check events
-        vm.expectEmit(true, true, false, false);
-        emit Staked(userA, userATokens);
-
-        vm.prank(userA);
-        pool.stake(userATokens);
-
+    function testUserCanStakeOnStart() public {
+        
+        // tokens
         assertEq(mocaToken.balanceOf(userA), 0);
         assertEq(mocaToken.balanceOf(address(pool)), userATokens);
 
         // get user data
         SimpleStaking.Data memory userData = pool.getUser(userA);
         
+        // user data
         assertEq(userData.amount, userATokens);
         assertEq(userData.cumulativeWeight, 0);
         assertEq(userData.lastUpdateTimestamp, 1);
 
-        // get pool data
+        // pool data
         assertEq(pool.getPoolLastUpdateTimestamp(), userData.lastUpdateTimestamp);
         assertEq(pool.getTotalStaked(), userData.amount);
-
     }
 
     function testGetPoolTimeCalculation() public {
         // getPoolCumulativeWeight should return the same value as _totalCumulativeWeight if _poolLastUpdateTimestamp and block.timestamp are the same.
         // unbookedWeight should be 0
-
         assertEq(pool.getPoolCumulativeWeight(), pool.getTotalCumulativeWeight());
     }
     
@@ -209,21 +247,18 @@ abstract contract StateT10 is StateT01 {
     function setUp() public virtual override {
         super.setUp();
 
-        vm.warp(1);
-            vm.prank(userA);
-            pool.stake(userATokens);
-
         vm.warp(10);
     }
 }
 
 contract StateT10Test is StateT10 {
 
-    function testUserCanUnstake() public {
+    function testUserACanUnstake() public {
         
         vm.prank(userA);
         pool.unstake(userATokens);
-
+        
+        // tokens
         assertEq(mocaToken.balanceOf(userA), userATokens);
         assertEq(mocaToken.balanceOf(address(pool)), 0);
 
@@ -235,7 +270,7 @@ contract StateT10Test is StateT10 {
         assertEq(userData.cumulativeWeight, ((10 - 1) * userATokens));
         assertEq(userData.lastUpdateTimestamp, 10);
     }
-    
+
     function testUserATimeWeightCalculation() public {
 
         uint256 cumulativeWeightGetter = pool.getUserCumulativeWeight(userA);
@@ -293,7 +328,7 @@ abstract contract StateT11 is StateT10 {
 
 contract StateT11Test is StateT11 {
 
-    function testPoolTimeWeightCalculation() public {
+    function testPoolTimeWeightCalculationT11() public {
 
         // pool updated
         assert(pool.getPoolLastUpdateTimestamp() == 11);
@@ -340,7 +375,7 @@ abstract contract StateT12 is StateT11 {
 
 contract StateT12Test is StateT12 {
 
-    function testUserAndPoolState() public {
+    function testUserAndPoolStateT12() public {
 
         // get user data
         SimpleStaking.Data memory userData = pool.getUser(userB);
