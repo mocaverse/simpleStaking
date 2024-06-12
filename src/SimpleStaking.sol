@@ -196,7 +196,7 @@ contract SimpleStaking is Ownable2Step {
                 userData.cumulativeWeight += unbookedWeight;
             }
         }
-
+        
         userData.lastUpdateTimestamp = block.timestamp;
         return userData;
     }
