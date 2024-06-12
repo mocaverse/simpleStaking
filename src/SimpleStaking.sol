@@ -26,13 +26,15 @@ contract SimpleStaking is Ownable2Step {
     mapping(address user => Data userData) internal _users;
 
     // events 
-    event Staked(address indexed onBehalfOf, address indexed msgSender, uint256 amount);
+    event Staked(address indexed user, uint256 amount);
     event Unstaked(address indexed user, uint256 amount);
     event StakedBehalf(address[] indexed users, uint256[] indexed amounts);
 
 
     constructor(address mocaToken, uint256 startTime_, address owner) Ownable(owner){
-        
+        // 1722384000: 31/07/24 12:00am UTC
+        require(startTime_ < 1722384000, "Far-dated startTime");        
+
         MOCA_TOKEN = IERC20(mocaToken);
         _startTime = startTime_;
     }
@@ -48,19 +50,28 @@ contract SimpleStaking is Ownable2Step {
      * @param onBehalfOf Address for stake
      * @param amount Tokens to stake, 1e8 precision
      */
-    function stake(address onBehalfOf, uint256 amount) external {
-        require(_startTime <= block.timestamp, "Not started");
+    function stake(uint256 amount) external {
         require(amount > 0, "Invalid amount");
 
         // cache
-        Data memory userData_ = _users[onBehalfOf];
+        Data memory userData_ = _users[msg.sender];
+
+        uint256 startTime = _startTime;
+        if(block.timestamp <= startTime){   //timeDelta = 0, @startTime
+
+            // floor startTime
+            _poolLastUpdateTimestamp = startTime;
+            user.lastUpdateTimestamp = startTime;
+
+        } else{
+            
+            // book pool's previous
+            _updatePool();
+
+            // book user's previous
+            Data memory userData = _updateUserCumulativeWeight(userData_);
+        }
         
-        // book pool's previous
-        _updatePool();
-
-        // book user's previous
-        Data memory userData = _updateUserCumulativeWeight(userData_);
-
         // book inflow
         userData.amount += amount;
         _totalStaked += amount;
@@ -68,7 +79,7 @@ contract SimpleStaking is Ownable2Step {
         // user: update storage
         _users[onBehalfOf] = userData;
 
-        emit Staked(onBehalfOf, msg.sender, amount);
+        emit Staked(msg.sender, amount);
  
         // grab MOCA
         MOCA_TOKEN.safeTransferFrom(msg.sender, address(this), amount);
@@ -114,9 +125,15 @@ contract SimpleStaking is Ownable2Step {
      * @param amounts Array of stake amounts, 1e18 precision
      */
     function stakeBehalf(address[] memory users, uint256[] memory amounts) external onlyOwner {
-        uint256 length = users.length;
-        require(length > 0, "Empty array");
-        require(length <= 5, "Array max length exceeded");
+        uint256 usersLength = users.length;
+        uint256 amountLength = amounts.length;
+        require(usersLength == amountLength, "Incorrect lengths");
+
+        require(usersLength > 0, "Empty array");
+        require(usersLength <= 10, "Array max length exceeded");
+
+        // book pool's previous
+        _updatePool();
 
         uint256 totalAmount;
         for (uint256 i; i < length; ++i){
@@ -125,9 +142,6 @@ contract SimpleStaking is Ownable2Step {
 
             // cache
             Data memory userData_ = _users[onBehalfOf];
-        
-            // book pool's previous
-            _updatePool();
         
             // book user's previous
             Data memory userData = _updateUserCumulativeWeight(userData_);
@@ -258,3 +272,6 @@ contract SimpleStaking is Ownable2Step {
         return _totalCumulativeWeight;
     }
 }
+
+
+
