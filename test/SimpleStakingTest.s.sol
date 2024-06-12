@@ -5,6 +5,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {SimpleStaking} from "../src/SimpleStaking.sol";
 
 import {ERC20Mock} from "openzeppelin-contracts/contracts/mocks/token/ERC20Mock.sol";
+import {Pausable} from "./../lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
 
 abstract contract StateZero is Test {
 
@@ -58,6 +59,9 @@ abstract contract StateZero is Test {
 
         vm.prank(userB);
         mocaToken.approve(address(pool), userBTokens);
+        
+        vm.prank(userC);
+        mocaToken.approve(address(pool), userCTokens);
 
         vm.prank(owner);
         mocaToken.approve(address(pool), ownerTokens);
@@ -482,5 +486,45 @@ contract StateT12Test is StateT12 {
         assertEq(poolLastUpdateTimestamp, 12);
 
         assertEq(totalCumulativeWeight, cumulativeWeightCalc);
+    }
+}
+
+abstract contract StatePaused is StateT12 {
+    
+    function setUp() public virtual override {
+        super.setUp();
+        
+        vm.prank(owner);
+        pool.pause();
+    }    
+}
+
+contract StatePausedTest is StatePaused {
+
+    function testPasusedPool() public {
+        
+        // stake
+        vm.prank(userC);
+        vm.expectRevert(abi.encodeWithSelector(Pausable.EnforcedPause.selector));
+        pool.stake(userCTokens);
+
+        // unstake
+        vm.prank(userA);
+        vm.expectRevert(abi.encodeWithSelector(Pausable.EnforcedPause.selector));
+        pool.unstake(userBTokens);
+
+        //owner
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(Pausable.EnforcedPause.selector));
+
+        address[] memory users = new address[](2);
+            users[0] = address(1);
+            users[1] = address(2);
+
+        uint256[] memory amounts = new uint256[](2);
+            amounts[0] = 10 ether;
+            amounts[1] = 10 ether;
+            
+        pool.stakeBehalf(users, amounts);
     }
 }

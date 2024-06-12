@@ -3,8 +3,9 @@ pragma solidity 0.8.24;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable2Step, Ownable} from "./../lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {Pausable} from "./../lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
 
-contract SimpleStaking is Ownable2Step {
+contract SimpleStaking is Ownable2Step, Pausable {
     using SafeERC20 for IERC20;
 
     // interfaces 
@@ -50,7 +51,7 @@ contract SimpleStaking is Ownable2Step {
      * @dev User can stake for another address of choice
      * @param amount Tokens to stake, 1e8 precision
      */
-    function stake(uint256 amount) external {
+    function stake(uint256 amount) external whenNotPaused {
         require(amount > 0, "Zero amount");
 
         // cache
@@ -79,7 +80,7 @@ contract SimpleStaking is Ownable2Step {
      * @notice User to unstake MocaTokens
      * @param amount Tokens to unstake, 1e8 precision
      */
-    function unstake(uint256 amount) external {
+    function unstake(uint256 amount) external whenNotPaused {
         require(amount > 0, "Zero amount");
 
         // cache
@@ -113,7 +114,7 @@ contract SimpleStaking is Ownable2Step {
      * @param users Array of address 
      * @param amounts Array of stake amounts, 1e18 precision
      */
-    function stakeBehalf(address[] memory users, uint256[] memory amounts) external onlyOwner {
+    function stakeBehalf(address[] memory users, uint256[] memory amounts) external onlyOwner whenNotPaused {
         uint256 usersLength = users.length;
         uint256 amountLength = amounts.length;
         require(usersLength == amountLength, "Incorrect lengths");
@@ -152,6 +153,13 @@ contract SimpleStaking is Ownable2Step {
         MOCA_TOKEN.safeTransferFrom(msg.sender, address(this), totalAmount);
     }
 
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 
     /*//////////////////////////////////////////////////////////////
                                 INTERNAL
