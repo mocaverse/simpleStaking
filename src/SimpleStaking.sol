@@ -38,7 +38,6 @@ contract SimpleStaking is Ownable2Step {
         MOCA_TOKEN = IERC20(mocaToken);
         
         _startTime = startTime_;
-        _poolLastUpdateTimestamp = startTime_;
     }
 
 
@@ -52,7 +51,7 @@ contract SimpleStaking is Ownable2Step {
      * @param amount Tokens to stake, 1e8 precision
      */
     function stake(uint256 amount) external {
-        require(amount > 0, "Invalid amount");
+        require(amount > 0, "Zero amount");
 
         // cache
         Data memory userData_ = _users[msg.sender];
@@ -81,7 +80,7 @@ contract SimpleStaking is Ownable2Step {
      * @param amount Tokens to unstake, 1e8 precision
      */
     function unstake(uint256 amount) external {
-        require(amount > 0, "Invalid amount");
+        require(amount > 0, "Zero amount");
 
         // cache
         Data memory userData_ = _users[msg.sender];

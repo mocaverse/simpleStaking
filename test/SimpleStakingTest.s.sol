@@ -71,6 +71,36 @@ abstract contract StateZero is Test {
 
 //note: Staking not started. Users can stake/unstake, but no cumWeight
 contract StateZeroTest is StateZero {
+    function testTokenGetter() public {
+        address tokenAddress = pool.getMocaToken();
+        assertEq(tokenAddress, address(mocaToken));
+    }
+
+    function testStartTime() public {
+        pool.getStartTime();
+        assertEq(pool.getStartTime(), 1);
+    }
+
+    function testCannotStakeZero() public {
+        
+        vm.prank(userA);
+        vm.expectRevert("Zero amount");
+        pool.stake(0);
+    }
+
+    function testCannotUnstakeZero() public {
+        
+        vm.prank(userA);
+        vm.expectRevert("Zero amount");
+        pool.unstake(0);
+    }
+
+    function testCannotUnstakeExcess() public {
+        
+        vm.prank(userA);
+        vm.expectRevert("Insufficient balance");
+        pool.unstake(1 ether);
+    }
 
     function testUserCanStake() public {
         
@@ -127,17 +157,62 @@ contract StateZeroTest is StateZero {
         assertEq(pool.getTotalStaked(), 0);
     }
 
-    function testTokenGetter() public {
-       address token = pool.getMocaToken();
-       assert(address(mocaToken) == token);
-    }
-
     function testGetTotalStakedDoesNotChangeOnDirectTransfer() public {
         vm.prank(userA);
         mocaToken.transfer(address(pool), userATokens);
 
         assertEq(pool.getTotalStaked(), 0);
     }
+
+    function testStakeBehalfArrayIncorrectLength() public {
+        address[] memory users = new address[](5);
+            users[0] = address(1);
+            users[1] = address(2);
+            users[2] = address(3);
+            users[3] = address(4);
+            users[4] = address(5);
+        
+        uint256[] memory amounts = new uint256[](3);
+            amounts[0] = 10 ether;
+            amounts[1] = 10 ether;
+            amounts[2] = 10 ether;
+            
+
+        vm.prank(owner);
+        vm.expectRevert("Incorrect lengths");
+        pool.stakeBehalf(users, amounts);
+    }
+
+    function testStakeBehalfEmptyArray() public {
+        address[] memory users = new address[](0);        
+        uint256[] memory amounts = new uint256[](0);
+
+        vm.prank(owner);
+        vm.expectRevert("Empty array");
+        pool.stakeBehalf(users, amounts);
+    }
+
+    function testStakeBehalfArrayMaxLength() public {
+        address[] memory users = new address[](11);
+            users[0] = address(1);
+            users[1] = address(2);
+            users[2] = address(3);
+            users[3] = address(4);
+            users[4] = address(5);
+
+        uint256[] memory amounts = new uint256[](11);
+            amounts[0] = 10 ether;
+            amounts[1] = 10 ether;
+            amounts[2] = 10 ether;
+            amounts[3] = 10 ether;
+            amounts[4] = 10 ether;
+      
+        
+        vm.prank(owner);
+        vm.expectRevert("Array max length exceeded");
+        pool.stakeBehalf(users, amounts);
+    }
+
 
     function testOwnerCanStakeBehalf() public {
 
