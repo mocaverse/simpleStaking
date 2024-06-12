@@ -36,7 +36,9 @@ contract SimpleStaking is Ownable2Step {
         require(startTime_ < 1722384000, "Far-dated startTime");        
 
         MOCA_TOKEN = IERC20(mocaToken);
+        
         _startTime = startTime_;
+        _poolLastUpdateTimestamp = startTime_;
     }
 
 
@@ -60,7 +62,6 @@ contract SimpleStaking is Ownable2Step {
         if(block.timestamp <= startTime){   //timeDelta = 0, @startTime
 
             // floor startTime
-            _poolLastUpdateTimestamp = startTime;
             user.lastUpdateTimestamp = startTime;
 
         } else{
