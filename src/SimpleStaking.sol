@@ -80,7 +80,7 @@ contract SimpleStaking is Ownable2Step, Pausable {
      * @notice User to unstake MocaTokens
      * @param amount Tokens to unstake, 1e8 precision
      */
-    function unstake(uint256 amount) external whenNotPaused {
+    function unstake(uint256 amount) external {
         require(amount > 0, "Zero amount");
 
         // cache

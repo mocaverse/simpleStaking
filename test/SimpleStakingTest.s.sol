@@ -501,17 +501,15 @@ abstract contract StatePaused is StateT12 {
 
 contract StatePausedTest is StatePaused {
 
-    function testPasusedPool() public {
+    function testPausedPool() public {
+        // unstake
+        vm.prank(userA);
+        pool.unstake(userATokens);
         
         // stake
         vm.prank(userC);
         vm.expectRevert(abi.encodeWithSelector(Pausable.EnforcedPause.selector));
         pool.stake(userCTokens);
-
-        // unstake
-        vm.prank(userA);
-        vm.expectRevert(abi.encodeWithSelector(Pausable.EnforcedPause.selector));
-        pool.unstake(userBTokens);
 
         //owner
         vm.prank(owner);
