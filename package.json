@@ -1,0 +1,22 @@
+{
+  "name": "simplestaking",
+  "version": "1.0.0",
+  "description": "- Simple Staking contract will be deployed on Ethereum. - stakeBehalf() for distribution - users can only interact after startTime",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-foundry": "^1.1.2",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "csv-parse": "^5.5.6",
+    "hardhat": "^2.22.5"
+  }
+}
