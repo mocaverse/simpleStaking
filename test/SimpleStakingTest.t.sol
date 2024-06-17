@@ -75,6 +75,7 @@ abstract contract StateZero is Test {
 
 //note: Staking not started. Users can stake/unstake, but no cumWeight
 contract StateZeroTest is StateZero {
+
     function testTokenGetter() public {
         address tokenAddress = pool.getMocaToken();
         assertEq(tokenAddress, address(mocaToken));
@@ -92,19 +93,13 @@ contract StateZeroTest is StateZero {
         pool.stake(0);
     }
 
-    function testCannotUnstakeZero() public {
+    function testCannotUnstakeBeforeStartTime() public {
         
         vm.prank(userA);
-        vm.expectRevert("Zero amount");
+        vm.expectRevert("Not started");
         pool.unstake(0);
     }
 
-    function testCannotUnstakeExcess() public {
-        
-        vm.prank(userA);
-        vm.expectRevert("Insufficient balance");
-        pool.unstake(1 ether);
-    }
 
     function testUserCanStake() public {
         
@@ -132,33 +127,30 @@ contract StateZeroTest is StateZero {
         assertEq(pool.getTotalStaked(), userData.amount);
     }
 
-    function testUserCanUnstake() public {
-        
-        vm.prank(userA);
-        pool.stake(userATokens);
+    function testUpdatePoolOnStakeTwice() public {
+        //  ensure that  _poolLastUpdateTimestamp remains as startTime,
+        //  if stake has been more than once
 
-        // check events
-        vm.expectEmit(true, false, false, false);
-        emit Unstaked(userA, userATokens);
+        vm.startPrank(userA);
+            pool.stake(userATokens/2);
+            pool.stake(userATokens/2);
+        vm.stopPrank();
 
-        vm.prank(userA);
-        pool.unstake(userATokens);
-        
         // tokens
-        assertEq(mocaToken.balanceOf(userA), userATokens);
-        assertEq(mocaToken.balanceOf(address(pool)), 0);
+        assertEq(mocaToken.balanceOf(userA), 0);
+        assertEq(mocaToken.balanceOf(address(pool)), userATokens);
 
         // get user data
         SimpleStaking.Data memory userData = pool.getUser(userA);
         
-        // user data 
-        assertEq(userData.amount, 0);
+        // user data
+        assertEq(userData.amount, userATokens);
         assertEq(userData.cumulativeWeight, 0);
         assertEq(userData.lastUpdateTimestamp, 0);
 
         // pool data
-        assertEq(pool.getPoolLastUpdateTimestamp(), 0);
-        assertEq(pool.getTotalStaked(), 0);
+        assertEq(pool.getPoolLastUpdateTimestamp(), userData.lastUpdateTimestamp);
+        assertEq(pool.getTotalStaked(), userData.amount);        
     }
 
     function testGetTotalStakedDoesNotChangeOnDirectTransfer() public {
@@ -295,10 +287,10 @@ contract StateT01Test is StateT01 {
         // user data
         assertEq(userData.amount, userATokens);
         assertEq(userData.cumulativeWeight, 0);
-        assertEq(userData.lastUpdateTimestamp, 1);
+        assertEq(userData.lastUpdateTimestamp, 0);  //timestamps are only updated AFTER staking has begun
 
-        // pool data
-        assertEq(pool.getPoolLastUpdateTimestamp(), userData.lastUpdateTimestamp);
+        // pool data  
+        assertEq(pool.getPoolLastUpdateTimestamp(), 0);  //timestamps are only updated AFTER staking has begun
         assertEq(pool.getTotalStaked(), userData.amount);
     }
 
@@ -316,6 +308,42 @@ contract StateT01Test is StateT01 {
         SimpleStaking.Data memory userData = pool.getUser(userA);
 
         assertEq(pool.getUserCumulativeWeight(userA), userData.cumulativeWeight);
+    }
+
+    function testCannotUnstakeZero() public {
+        
+        vm.prank(userA);
+        vm.expectRevert("Zero amount");
+        pool.unstake(0);
+    }
+
+    function testCannotUnstakeExcess() public {
+        
+        vm.prank(userA);
+        vm.expectRevert("Insufficient balance");
+        pool.unstake(userATokens * 2);
+    }	
+
+    function testUserCanUnstakeOnStart() public {
+
+        vm.prank(userA);
+        pool.unstake(userATokens);
+        
+        // tokens
+        assertEq(mocaToken.balanceOf(userA), userATokens);
+        assertEq(mocaToken.balanceOf(address(pool)), 0);
+
+        // get user data
+        SimpleStaking.Data memory userData = pool.getUser(userA);
+        
+        // user data 
+        assertEq(userData.amount, 0);
+        assertEq(userData.cumulativeWeight, 0);
+        assertEq(userData.lastUpdateTimestamp, 0);
+
+        // pool data
+        assertEq(pool.getPoolLastUpdateTimestamp(), 0); 
+        assertEq(pool.getTotalStaked(), 0);
     }
 
 }
@@ -377,7 +405,7 @@ contract StateT10Test is StateT10 {
 
     function testPoolTimeWeightCalculation() public {
         // pool not updated
-        assert(pool.getPoolLastUpdateTimestamp() == 1);
+        assert(pool.getPoolLastUpdateTimestamp() == 0);
 
         uint256 totalStaked = pool.getTotalStaked();
         uint256 totalPoolWeight = pool.getPoolCumulativeWeight();
@@ -440,7 +468,7 @@ contract StateT11Test is StateT11 {
 
 }
 
-abstract contract StateT12 is StateT11 {
+abstract contract StateT12 is StateT11 {    
     
     function setUp() public virtual override {
         super.setUp();
@@ -514,6 +542,42 @@ contract StatePausedTest is StatePaused {
         //owner
         vm.prank(owner);
         vm.expectRevert(abi.encodeWithSelector(Pausable.EnforcedPause.selector));
+
+        address[] memory users = new address[](2);
+            users[0] = address(1);
+            users[1] = address(2);
+
+        uint256[] memory amounts = new uint256[](2);
+            amounts[0] = 10 ether;
+            amounts[1] = 10 ether;
+            
+        pool.stakeBehalf(users, amounts);
+    }
+}
+
+abstract contract StateUnpaused is StatePaused {
+    
+    function setUp() public virtual override {
+        super.setUp();
+        
+        vm.prank(owner);
+        pool.unpause();
+    }     
+}
+
+contract StateUnpausedTest is StateUnpaused {
+
+    function testUnpausedPool() public {
+        // unstake
+        vm.prank(userA);
+        pool.unstake(userATokens);
+        
+        // stake
+        vm.prank(userC);
+        pool.stake(userCTokens);
+
+        //owner
+        vm.prank(owner);
 
         address[] memory users = new address[](2);
             users[0] = address(1);

@@ -35,6 +35,7 @@ contract SimpleStaking is Ownable2Step, Pausable {
     constructor(address mocaToken, uint256 startTime_, address owner) Ownable(owner){
         // 1722384000: 31/07/24 12:00am UTC
         require(startTime_ < 1722384000, "Far-dated startTime");        
+        require(startTime_ >= block.timestamp, "StartTime in past");
 
         MOCA_TOKEN = IERC20(mocaToken);
         
@@ -81,6 +82,7 @@ contract SimpleStaking is Ownable2Step, Pausable {
      * @param amount Tokens to unstake, 1e8 precision
      */
     function unstake(uint256 amount) external {
+        require(block.timestamp >= _startTime, "Not started");
         require(amount > 0, "Zero amount");
 
         // cache
@@ -138,7 +140,6 @@ contract SimpleStaking is Ownable2Step, Pausable {
 
             // book inflow
             userData.amount += amount;
-            _totalStaked += amount;         //sstore
 
             // user: update storage
             _users[onBehalfOf] = userData;
@@ -148,6 +149,8 @@ contract SimpleStaking is Ownable2Step, Pausable {
         }
         
         emit StakedBehalf(users, amounts);
+
+        _totalStaked += totalAmount;         //sstore
 
         // grab MOCA
         MOCA_TOKEN.safeTransferFrom(msg.sender, address(this), totalAmount);
@@ -166,6 +169,12 @@ contract SimpleStaking is Ownable2Step, Pausable {
     //////////////////////////////////////////////////////////////*/
 
     function _updatePool() internal {
+        
+        // no update of the _poolLastUpdateTimestamp otherwise it can be set to before
+        // _poolLastUpdateTimestamp =0, when t = startTime
+        if (block.timestamp <= _startTime) {
+            return; 
+        }
 
         if(_totalStaked > 0){
             if(block.timestamp > _poolLastUpdateTimestamp){
@@ -187,8 +196,6 @@ contract SimpleStaking is Ownable2Step, Pausable {
         // staking not started: return early
         uint256 startTime = _startTime;
         if (block.timestamp <= startTime) {
-
-            userData.lastUpdateTimestamp = block.timestamp;  
             return userData;
         }
 
@@ -255,9 +262,15 @@ contract SimpleStaking is Ownable2Step, Pausable {
     } 
 
     ///@notice returns user's cumulative weight
+    ///@dev returns 0 if staking has not begun
     function getUserCumulativeWeight(address user) external view returns(uint256) {
         // cache
         Data memory userData = _users[user];
+
+        // staking not started: return early
+        if (block.timestamp <= _startTime) {
+            return 0;
+        }
 
         // calc. unbooked
         if(userData.amount > 0) {
@@ -275,7 +288,14 @@ contract SimpleStaking is Ownable2Step, Pausable {
     }
 
     ///@notice returns pool's total cumulative weight (incl. pending)
+    ///@dev returns 0 if staking has not begun
     function getPoolCumulativeWeight() external view returns(uint256) {
+
+        // staking not started
+        if (block.timestamp <= _startTime) {
+            return 0; 
+        }
+
         // calc. unbooked
         if(block.timestamp > _poolLastUpdateTimestamp){
 
