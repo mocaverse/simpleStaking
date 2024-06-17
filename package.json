@@ -8,6 +8,10 @@
     "test": "test"
   },
   "scripts": {
+    "node-local": "npx hardhat node",
+    "batch-stake-local": "npx hardhat run script/BatchDeposit.s.js --network localhost",
+    "batch-stake-sepolia": "npx hardhat run script/BatchDeposit.s.js --network sepolia",
+    "batch-stake-prod": "npx hardhat run script/BatchDeposit.s.js --network mainnet",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -18,5 +22,8 @@
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "csv-parse": "^5.5.6",
     "hardhat": "^2.22.5"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
   }
 }

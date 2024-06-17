@@ -1,6 +1,8 @@
 const hre = require("hardhat");
 const fs = require("fs");
-const csv = require("csv-parser");
+const csv = require("csv-parse");
+
+const REQUIRE_PARSE = true;
 
 async function loadCSV(filePath) {
   const results = [];
@@ -30,8 +32,7 @@ async function run() {
   const SimpleStaking = await hre.ethers.getContractFactory("SimpleStaking");
   const simpleStaking = await SimpleStaking.attach(stakingAddress);
 
-  const Token = await hre.ethers.getContractFactory("ERC20");
-  const token = await Token.attach(tokenAddress);
+  const token = await hre.ethers.getContractAt("IERC20", tokenAddress);
 
   // load csv from file path
   const csvPath = process.env.CSV_PATH;
@@ -39,22 +40,30 @@ async function run() {
 
   const signer = new hre.ethers.Wallet(deployerPrivateKey, hre.ethers.provider);
 
-  console.log("Script starteed by: ", await signer.getAddress(), "Balance: ", hre.ethers.utils.formatEther(await signer.getBalance()));
+  console.log("Script started by: ", await signer.getAddress(), "Balance: ", hre.ethers.formatEther(await hre.ethers.provider.getBalance(signer)));
 
   await token.approve(stakingAddress, await token.balanceOf(await signer.getAddress()));
 
-  for (let i = 0; i < userRecords.length; i++) {
+  // get the first 10 records and stake them
+  const BATCH_SIZE = 1;
+  for (let i = 0; i < userRecords.length; i += BATCH_SIZE) {
+    const batch = userRecords.slice(i, i + BATCH_SIZE);
+    const addresses = batch.map((record) => record.address);
+    const amounts = batch.map((record) => record.amount).map((amount) => (REQUIRE_PARSE ? hre.ethers.parseEther(amount) : amount));
+
+    console.log(`Staking ${addresses}`);
     try {
-      const { recipient, amount } = userRecords[i];
-      const txn = await simpleStaking.stakeBehalf(recipient, amount);
+      // currently seems it's callable for owner only
+      const txn = await simpleStaking.stakeBehalf(addresses, amounts);
       await txn.wait();
-      fs.appendFileSync("stake_result.log", `${recipient},${amount}, success\n`);
+      fs.appendFileSync("stake_result.log", `${addresses},${amounts}, success\n`);
     } catch (error) {
-      fs.appendFileSync("stake_result.log", `${recipient},${amount}, failed: ${error}\n`);
+      console.warn(error);
+      fs.appendFileSync("stake_result.log", `${addresses},${amounts}, failed: ${error}\n`);
     }
   }
 
-  console.log("Script finished, Balance: ", hre.ethers.utils.formatEther(await signer.getBalance()));
+  console.log("Script finished, Balance: ", hre.ethers.formatEther(await hre.ethers.provider.getBalance(signer)));
 }
 
 run().catch((error) => {
