@@ -112,7 +112,7 @@ contract SimpleStaking is Ownable2Step, Pausable {
 
     /**
      * @notice Owner to stake on behalf of users for distribution
-     * @dev Max array length: 5
+     * @dev Max array length: 10
      * @param users Array of address 
      * @param amounts Array of stake amounts, 1e18 precision
      */
