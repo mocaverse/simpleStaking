@@ -26,13 +26,15 @@ contract SimpleStaking is Ownable2Step, Pausable {
 
     mapping(address user => Data userData) internal _users;
 
+    address internal _updater;
+
     // events 
     event Staked(address indexed user, uint256 amount);
     event Unstaked(address indexed user, uint256 amount);
     event StakedBehalf(address[] indexed users, uint256[] indexed amounts);
 
 
-    constructor(address mocaToken, uint256 startTime_, address owner) Ownable(owner){
+    constructor(address mocaToken, uint256 startTime_, address owner, address updater) Ownable(owner){
         // 1722384000: 31/07/24 12:00am UTC
         require(startTime_ < 1722384000, "Far-dated startTime");        
         require(startTime_ >= block.timestamp, "StartTime in past");
@@ -40,6 +42,8 @@ contract SimpleStaking is Ownable2Step, Pausable {
         MOCA_TOKEN = IERC20(mocaToken);
         
         _startTime = startTime_;
+
+        _updater = updater;
     }
 
 
@@ -116,7 +120,9 @@ contract SimpleStaking is Ownable2Step, Pausable {
      * @param users Array of address 
      * @param amounts Array of stake amounts, 1e18 precision
      */
-    function stakeBehalf(address[] memory users, uint256[] memory amounts) external onlyOwner whenNotPaused {
+    function stakeBehalf(address[] memory users, uint256[] memory amounts) external whenNotPaused {
+        require(msg.sender == _updater, "Incorrect caller");
+
         uint256 usersLength = users.length;
         uint256 amountLength = amounts.length;
         require(usersLength == amountLength, "Incorrect lengths");
@@ -161,6 +167,10 @@ contract SimpleStaking is Ownable2Step, Pausable {
 
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    function changeUpdater(address newUpdater) external onlyOwner {
+        _updater = newUpdater;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -306,6 +316,11 @@ contract SimpleStaking is Ownable2Step, Pausable {
 
         // updated to latest, nothing unbooked 
         return _totalCumulativeWeight;
+    }
+
+    ///@notice returns _updater
+    function getUpdater() external view returns(address){
+        return _updater;
     }
 }
 

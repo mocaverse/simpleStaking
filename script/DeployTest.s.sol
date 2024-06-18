@@ -13,7 +13,7 @@ contract DeployTestSepolia is Script {
 
         // mocaToken = 0x5667424802Ef74C314e7adbBa6fA669999d8137D
         uint256 startTime = block.timestamp + (60 * 60);
-        SimpleStaking simpleStaking = new SimpleStaking(0x5667424802Ef74C314e7adbBa6fA669999d8137D, startTime, 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db);
+        SimpleStaking simpleStaking = new SimpleStaking(0x5667424802Ef74C314e7adbBa6fA669999d8137D, startTime, 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db, 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db);
 
         vm.stopBroadcast();
         
