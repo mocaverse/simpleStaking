@@ -55,25 +55,25 @@ contract StakeBehalf is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        IMoca(0x5667424802Ef74C314e7adbBa6fA669999d8137D).mint(10 ether);
-        IMoca(0x5667424802Ef74C314e7adbBa6fA669999d8137D).approve(0x2EF1b6BcFf31b64ee4Fd5A3CF9e7b58a2eaea8D5, 10 ether);
+        //IMoca(0x5667424802Ef74C314e7adbBa6fA669999d8137D).mint(100 ether);
+        //IMoca(0x5667424802Ef74C314e7adbBa6fA669999d8137D).approve(0x55105f426126952AC6d9C2E7e72C7451318617D3, 100 ether);
 
-        address[] memory users = new address[](5);
+        address[] memory users = new address[](3);
             users[0] = 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db;
             users[1] = 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db;
             users[2] = 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db;
-            users[3] = 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db;
-            users[4] = 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db;
+            //users[3] = 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db;
+            //users[4] = 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db;
 
-        uint256[] memory amounts = new uint256[](5);
+        uint256[] memory amounts = new uint256[](3);
             amounts[0] = 5 ether;
             amounts[1] = 5 ether;
             amounts[2] = 5 ether;
-            amounts[3] = 5 ether;
-            amounts[4] = 5 ether;
+            //amounts[3] = 5 ether;
+            //amounts[4] = 5 ether;
 
 
-        SimpleStaking(0xa970B29C8634A4D50f0ae1C29724a09399ceF2D9).stakeBehalf(users, amounts);
+        SimpleStaking(0x55105f426126952AC6d9C2E7e72C7451318617D3).stakeBehalf(users, amounts);
 
         vm.stopBroadcast();
     }

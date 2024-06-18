@@ -112,7 +112,7 @@ contract SimpleStaking is Ownable2Step, Pausable {
 
     /**
      * @notice Owner to stake on behalf of users for distribution
-     * @dev Max array length: 10
+     * @dev Gas used: 84,805 for length =1, incrementing by 2600 for every additional loop. 1000 users = 2,682,042 gas
      * @param users Array of address 
      * @param amounts Array of stake amounts, 1e18 precision
      */
@@ -122,7 +122,6 @@ contract SimpleStaking is Ownable2Step, Pausable {
         require(usersLength == amountLength, "Incorrect lengths");
 
         require(usersLength > 0, "Empty array");
-        require(usersLength <= 10, "Array max length exceeded");
 
         // book pool's previous
         _updatePool();
