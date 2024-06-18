@@ -16,11 +16,13 @@ abstract contract StateZero is Test {
     address public userB;
     address public userC;
     address public owner;
+    address public updater;
 
     uint256 public userATokens;
     uint256 public userBTokens;
     uint256 public userCTokens;
     uint256 public ownerTokens;
+    uint256 public updaterTokens;
 
     uint256 public startTime = 1;
 
@@ -36,22 +38,25 @@ abstract contract StateZero is Test {
         userB = makeAddr("userB");
         userC = makeAddr("userC");
         owner = makeAddr("owner");
+        updater = makeAddr("updater");
 
         // values
         userATokens = 20 ether;
         userBTokens = 50 ether;
         userCTokens = 80 ether;
         ownerTokens = 50 ether;
+        updaterTokens = 50 ether;
 
         //contracts
         mocaToken = new ERC20Mock();    
-        pool = new SimpleStaking(address(mocaToken), startTime, owner);
+        pool = new SimpleStaking(address(mocaToken), startTime, owner, updater);
 
         // mint tokens
         mocaToken.mint(userA, userATokens);
         mocaToken.mint(userB, userBTokens);
         mocaToken.mint(userC, userCTokens);
         mocaToken.mint(owner, ownerTokens);
+        mocaToken.mint(updater, updaterTokens);
 
         // allowance
         vm.prank(userA);
@@ -66,8 +71,18 @@ abstract contract StateZero is Test {
         vm.prank(owner);
         mocaToken.approve(address(pool), ownerTokens);
 
+        vm.prank(updater);
+        mocaToken.approve(address(pool), updaterTokens);
+
         // set time
         vm.warp(0);
+
+        // userA stake
+        vm.expectEmit(true, true, false, false);
+        emit Staked(userA, userATokens);
+
+        vm.prank(userA);
+        pool.stake(userATokens);
 
     }
 }
@@ -101,14 +116,7 @@ contract StateZeroTest is StateZero {
     }
 
 
-    function testUserCanStake() public {
-        
-        // check events
-        vm.expectEmit(true, true, false, false);
-        emit Staked(userA, userATokens);
-
-        vm.prank(userA);
-        pool.stake(userATokens);
+    function testUserAStake() public {
 
         // tokens
         assertEq(mocaToken.balanceOf(userA), 0);
@@ -131,33 +139,33 @@ contract StateZeroTest is StateZero {
         //  ensure that  _poolLastUpdateTimestamp remains as startTime,
         //  if stake has been more than once
 
-        vm.startPrank(userA);
-            pool.stake(userATokens/2);
-            pool.stake(userATokens/2);
+        vm.startPrank(userB);
+            pool.stake(userBTokens/2);
+            pool.stake(userBTokens/2);
         vm.stopPrank();
 
         // tokens
-        assertEq(mocaToken.balanceOf(userA), 0);
-        assertEq(mocaToken.balanceOf(address(pool)), userATokens);
+        assertEq(mocaToken.balanceOf(userB), 0);
+        assertEq(mocaToken.balanceOf(address(pool)), (userBTokens + userATokens));
 
         // get user data
-        SimpleStaking.Data memory userData = pool.getUser(userA);
+        SimpleStaking.Data memory userData = pool.getUser(userB);
         
         // user data
-        assertEq(userData.amount, userATokens);
+        assertEq(userData.amount, userBTokens);
         assertEq(userData.cumulativeWeight, 0);
         assertEq(userData.lastUpdateTimestamp, 0);
 
         // pool data
         assertEq(pool.getPoolLastUpdateTimestamp(), userData.lastUpdateTimestamp);
-        assertEq(pool.getTotalStaked(), userData.amount);        
+        assertEq(pool.getTotalStaked(), (userData.amount + userATokens));        
     }
 
     function testGetTotalStakedDoesNotChangeOnDirectTransfer() public {
-        vm.prank(userA);
-        mocaToken.transfer(address(pool), userATokens);
+        vm.prank(userB);
+        mocaToken.transfer(address(pool), userBTokens);
 
-        assertEq(pool.getTotalStaked(), 0);
+        assertEq(pool.getTotalStaked(), userATokens);
     }
 
     function testStakeBehalfArrayIncorrectLength() public {
@@ -174,7 +182,7 @@ contract StateZeroTest is StateZero {
             amounts[2] = 10 ether;
             
 
-        vm.prank(owner);
+        vm.prank(updater);
         vm.expectRevert("Incorrect lengths");
         pool.stakeBehalf(users, amounts);
     }
@@ -183,34 +191,81 @@ contract StateZeroTest is StateZero {
         address[] memory users = new address[](0);        
         uint256[] memory amounts = new uint256[](0);
 
-        vm.prank(owner);
+        vm.prank(updater);
         vm.expectRevert("Empty array");
         pool.stakeBehalf(users, amounts);
     }
 
-    function testStakeBehalfArrayMaxLength() public {
-        address[] memory users = new address[](11);
+    function testUserCannotStakeBehalf() public {
+
+        address[] memory users = new address[](5);
             users[0] = address(1);
             users[1] = address(2);
             users[2] = address(3);
             users[3] = address(4);
             users[4] = address(5);
-
-        uint256[] memory amounts = new uint256[](11);
+        
+        uint256[] memory amounts = new uint256[](5);
             amounts[0] = 10 ether;
             amounts[1] = 10 ether;
             amounts[2] = 10 ether;
             amounts[3] = 10 ether;
             amounts[4] = 10 ether;
-      
-        
-        vm.prank(owner);
-        vm.expectRevert("Array max length exceeded");
+
+        vm.prank(userA);
+        vm.expectRevert("Incorrect caller");
         pool.stakeBehalf(users, amounts);
     }
 
+    function testUpdaterCanStakeBehalf() public {
+
+        address[] memory users = new address[](5);
+            users[0] = address(1);
+            users[1] = address(2);
+            users[2] = address(3);
+            users[3] = address(4);
+            users[4] = address(5);
+        
+        uint256[] memory amounts = new uint256[](5);
+            amounts[0] = 10 ether;
+            amounts[1] = 10 ether;
+            amounts[2] = 10 ether;
+            amounts[3] = 10 ether;
+            amounts[4] = 10 ether;
+
+        // check events
+        vm.expectEmit(true, true, true, false);
+        emit StakedBehalf(users, amounts);
+
+        vm.prank(updater);
+        pool.stakeBehalf(users, amounts);
+
+        // assert: token transfers
+        assertEq(mocaToken.balanceOf(updater), 0);
+        assertEq(mocaToken.balanceOf(address(pool)), (updaterTokens + userATokens));
+
+        // assert: Pool data
+        assertEq(pool.getTotalStaked(), (updaterTokens + userATokens));
+        assertEq(pool.getPoolCumulativeWeight(), 0);
+
+        // assert: users
+        SimpleStaking.Data memory user1 = pool.getUser(address(1));
+        SimpleStaking.Data memory user2 = pool.getUser(address(2));
+        SimpleStaking.Data memory user3 = pool.getUser(address(3));
+        SimpleStaking.Data memory user4 = pool.getUser(address(4));
+        SimpleStaking.Data memory user5 = pool.getUser(address(5));
+
+        assertEq(user1.amount, 10 ether);
+        assertEq(user2.amount, 10 ether);
+        assertEq(user3.amount, 10 ether);
+        assertEq(user4.amount, 10 ether);
+        assertEq(user5.amount, 10 ether);
+    }
 
     function testOwnerCanStakeBehalf() public {
+
+        vm.prank(owner);
+        pool.changeUpdater(owner);
 
         address[] memory users = new address[](5);
             users[0] = address(1);
@@ -235,10 +290,10 @@ contract StateZeroTest is StateZero {
 
         // assert: token transfers
         assertEq(mocaToken.balanceOf(owner), 0);
-        assertEq(mocaToken.balanceOf(address(pool)), ownerTokens);
+        assertEq(mocaToken.balanceOf(address(pool)), (ownerTokens + userATokens));
 
         // assert: Pool data
-        assertEq(pool.getTotalStaked(), ownerTokens);
+        assertEq(pool.getTotalStaked(), (ownerTokens + userATokens));
         assertEq(pool.getPoolCumulativeWeight(), 0);
 
         // assert: users
@@ -253,9 +308,7 @@ contract StateZeroTest is StateZero {
         assertEq(user3.amount, 10 ether);
         assertEq(user4.amount, 10 ether);
         assertEq(user5.amount, 10 ether);
-
     }
-
 }
 
 
@@ -267,9 +320,6 @@ abstract contract StateT01 is StateZero {
 
         vm.warp(1);
         
-        // userA stake
-        vm.prank(userA);
-        pool.stake(userATokens);
     }
 }
 
@@ -577,7 +627,7 @@ contract StateUnpausedTest is StateUnpaused {
         pool.stake(userCTokens);
 
         //owner
-        vm.prank(owner);
+        vm.prank(updater);
 
         address[] memory users = new address[](2);
             users[0] = address(1);
