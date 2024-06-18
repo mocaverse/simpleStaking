@@ -24,7 +24,7 @@ async function loadCSV(filePath) {
   });
 }
 
-async function run() {
+async function run(batchSize = 500, startAt = 0, endAt = 0) {
   const deployerPrivateKey = process.env.PRIVATE_KEY;
   const stakingAddress = process.env.STAKING_CONTRACT;
   const tokenAddress = process.env.TOKEN_CONTRACT;
@@ -51,8 +51,9 @@ async function run() {
 
   await token.approve(stakingAddress, await token.balanceOf(await signer.getAddress()));
 
-  const BATCH_SIZE = 300;
-  for (let i = 0; i < userRecords.length; i += BATCH_SIZE) {
+  const end = endAt === 0 ? userRecords.length : endAt;
+
+  for (let i = startAt; i < end; i += BATCH_SIZE) {
     const batch = userRecords.slice(i, i + BATCH_SIZE);
     const addresses = batch.map((record) => record.address);
     const amounts = batch.map((record) => record.amount).map((amount) => (REQUIRE_PARSE ? hre.ethers.parseEther(amount) : amount));
@@ -65,7 +66,7 @@ async function run() {
 
       const estimatedGas = await simpleStaking.stakeBehalf.estimateGas(addresses, amounts);
       console.log(
-        `Current gas price per unit: ${gasPrice} txn gas unit: ${estimatedGas} total cost: ${hre.ethers.formatEther(
+        `Current gas price per unit: ${hre.ethers.formatUnits(gasPrice, "gwei")} txn gas unit: ${estimatedGas} total cost: ${hre.ethers.formatEther(
           gasPrice * estimatedGas
         )} token: ${hre.ethers.formatEther(await token.balanceOf(await signer.getAddress()))}`
       );
@@ -87,7 +88,9 @@ async function run() {
   );
 }
 
-run().catch((error) => {
+const BATCH_SIZE = 500;
+
+run(BATCH_SIZE, 0, 0).catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
