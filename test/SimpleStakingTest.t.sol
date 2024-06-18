@@ -69,6 +69,13 @@ abstract contract StateZero is Test {
         // set time
         vm.warp(0);
 
+        // userA stake
+        vm.expectEmit(true, true, false, false);
+        emit Staked(userA, userATokens);
+
+        vm.prank(userA);
+        pool.stake(userATokens);
+
     }
 }
 
@@ -101,14 +108,7 @@ contract StateZeroTest is StateZero {
     }
 
 
-    function testUserCanStake() public {
-        
-        // check events
-        vm.expectEmit(true, true, false, false);
-        emit Staked(userA, userATokens);
-
-        vm.prank(userA);
-        pool.stake(userATokens);
+    function testUserAStake() public {
 
         // tokens
         assertEq(mocaToken.balanceOf(userA), 0);
@@ -131,33 +131,33 @@ contract StateZeroTest is StateZero {
         //  ensure that  _poolLastUpdateTimestamp remains as startTime,
         //  if stake has been more than once
 
-        vm.startPrank(userA);
-            pool.stake(userATokens/2);
-            pool.stake(userATokens/2);
+        vm.startPrank(userB);
+            pool.stake(userBTokens/2);
+            pool.stake(userBTokens/2);
         vm.stopPrank();
 
         // tokens
-        assertEq(mocaToken.balanceOf(userA), 0);
-        assertEq(mocaToken.balanceOf(address(pool)), userATokens);
+        assertEq(mocaToken.balanceOf(userB), 0);
+        assertEq(mocaToken.balanceOf(address(pool)), (userBTokens + userATokens));
 
         // get user data
-        SimpleStaking.Data memory userData = pool.getUser(userA);
+        SimpleStaking.Data memory userData = pool.getUser(userB);
         
         // user data
-        assertEq(userData.amount, userATokens);
+        assertEq(userData.amount, userBTokens);
         assertEq(userData.cumulativeWeight, 0);
         assertEq(userData.lastUpdateTimestamp, 0);
 
         // pool data
         assertEq(pool.getPoolLastUpdateTimestamp(), userData.lastUpdateTimestamp);
-        assertEq(pool.getTotalStaked(), userData.amount);        
+        assertEq(pool.getTotalStaked(), (userData.amount + userATokens));        
     }
 
     function testGetTotalStakedDoesNotChangeOnDirectTransfer() public {
-        vm.prank(userA);
-        mocaToken.transfer(address(pool), userATokens);
+        vm.prank(userB);
+        mocaToken.transfer(address(pool), userBTokens);
 
-        assertEq(pool.getTotalStaked(), 0);
+        assertEq(pool.getTotalStaked(), userATokens);
     }
 
     function testStakeBehalfArrayIncorrectLength() public {
@@ -235,10 +235,10 @@ contract StateZeroTest is StateZero {
 
         // assert: token transfers
         assertEq(mocaToken.balanceOf(owner), 0);
-        assertEq(mocaToken.balanceOf(address(pool)), ownerTokens);
+        assertEq(mocaToken.balanceOf(address(pool)), (ownerTokens + userATokens));
 
         // assert: Pool data
-        assertEq(pool.getTotalStaked(), ownerTokens);
+        assertEq(pool.getTotalStaked(), (ownerTokens + userATokens));
         assertEq(pool.getPoolCumulativeWeight(), 0);
 
         // assert: users
@@ -267,9 +267,6 @@ abstract contract StateT01 is StateZero {
 
         vm.warp(1);
         
-        // userA stake
-        vm.prank(userA);
-        pool.stake(userATokens);
     }
 }
 
