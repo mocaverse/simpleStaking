@@ -11,9 +11,9 @@ contract DeployTestSepolia is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        // mocaToken = 0x5667424802Ef74C314e7adbBa6fA669999d8137D
+        // mocaToken = 0xF944e35f95E819E752f3cCB5Faf40957d311e8c5 [ethereum]
         uint256 startTime = block.timestamp + (60 * 60);
-        SimpleStaking simpleStaking = new SimpleStaking(0x5667424802Ef74C314e7adbBa6fA669999d8137D, startTime, 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db, 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db);
+        SimpleStaking simpleStaking = new SimpleStaking(0x5667424802Ef74C314e7adbBa6fA669999d8137D, startTime, 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db, 0x8F93daA325708c6e7a83e3b4e9AA641f1B73661C);
 
         vm.stopBroadcast();
         
