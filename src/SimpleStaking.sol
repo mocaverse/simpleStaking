@@ -16,7 +16,7 @@ contract SimpleStaking is Ownable2Step, Pausable {
     // pool data 
     uint256 internal _totalStaked;
     uint256 internal _totalCumulativeWeight;
-    uint256 internal _poolLastUpdateTimestamp; //note: should 128 for packing?
+    uint256 internal _poolLastUpdateTimestamp; 
 
     struct Data {
         uint256 amount;
@@ -116,7 +116,7 @@ contract SimpleStaking is Ownable2Step, Pausable {
 
     /**
      * @notice Owner to stake on behalf of users for distribution
-     * @dev Gas used: 84,805 for length =1, incrementing by 2600 for every additional loop. 1000 users = 2,682,042 gas
+     * @dev Gas used: 84,805 for length =1, incrementing by 2600 for every additional loop
      * @param users Array of address 
      * @param amounts Array of stake amounts, 1e18 precision
      */
@@ -161,14 +161,24 @@ contract SimpleStaking is Ownable2Step, Pausable {
         MOCA_TOKEN.safeTransferFrom(msg.sender, address(this), totalAmount);
     }
 
+    /**
+     * @notice Owner to pause contract
+     */
     function pause() external onlyOwner {
         _pause();
     }
 
+    /**
+     * @notice Owner to unpause contract
+     */
     function unpause() external onlyOwner {
         _unpause();
     }
-
+    
+    /**
+     * @notice Owner to change updater address
+     * @param newUpdater new updater address
+     */
     function changeUpdater(address newUpdater) external onlyOwner {
         _updater = newUpdater;
     }
