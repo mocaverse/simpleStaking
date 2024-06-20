@@ -13,8 +13,8 @@ contract DeployMainnet is Script {
         // mocaToken on ethereum
         address mocaToken = 0x5667424802Ef74C314e7adbBa6fA669999d8137D;
         uint256 startTime = block.timestamp + (60 * 60);
-        address owner = 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db;
-        address updater = 0x8F93daA325708c6e7a83e3b4e9AA641f1B73661C;
+        address owner = 0x1291d48f9524cE496bE32D2DC33D5E157b6Ed1e3;
+        address updater = 0xdE05a1Abb121113a33eeD248BD91ddC254d5E9Db;
 
         SimpleStaking simpleStaking = new SimpleStaking(mocaToken, startTime, owner, updater);
 
