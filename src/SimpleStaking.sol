@@ -120,7 +120,7 @@ contract SimpleStaking is Ownable2Step, Pausable {
      * @param users Array of address 
      * @param amounts Array of stake amounts, 1e18 precision
      */
-    function stakeBehalf(address[] memory users, uint256[] memory amounts) external whenNotPaused {
+    function stakeBehalf(address[] calldata users, uint256[] calldata amounts) external whenNotPaused {
         require(msg.sender == _updater, "Incorrect caller");
 
         uint256 usersLength = users.length;
