@@ -36,7 +36,7 @@ contract SimpleStaking is Ownable2Step, Pausable {
 
     constructor(address mocaToken, uint256 startTime_, address owner, address updater) Ownable(owner){
         // ensure startTime is not far-dated
-        require(startTime_ <= block.timstamp + 1 months); 
+        require(startTime_ <= block.timestamp + 30 days, "Far-dated start"); 
         require(startTime_ >= block.timestamp, "StartTime in past");
 
         MOCA_TOKEN = IERC20(mocaToken);
