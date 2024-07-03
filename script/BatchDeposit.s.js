@@ -146,18 +146,18 @@ async function run(batchSize = 500, startAt = 0, endAt = 0) {
   const allAddresses = userRecords.map((record) => record.address);
   const allAmounts = userRecords.map((record) => record.amount).map((amount) => (REQUIRE_PARSE ? hre.ethers.parseEther(amount) : amount));
 
-  // const expectedAmounts = new Array(end - startAt).fill(0);
-  // await validateAllRecords(allAddresses.slice(startAt, end), expectedAmounts, simpleStaking);
+  const expectedAmounts = new Array(end - startAt).fill(0);
+  await validateAllRecords(allAddresses.slice(startAt, end), expectedAmounts, simpleStaking);
 
   for (let i = startAt; i < end; i += batchSize) {
     const addresses = allAddresses.slice(i, i + batchSize);
     const amounts = allAmounts.slice(i, i + batchSize);
 
     // validate the batch records are 0 before staking
-    const expectedAmounts = new Array(amounts.length).fill(0);
-    await validateAllRecords(addresses, expectedAmounts, simpleStaking);
+    // const expectedAmounts = new Array(amounts.length).fill(0);
+    // await validateAllRecords(addresses, expectedAmounts, simpleStaking);
 
-    const writeContent = addresses.map((address, index) => `${address},${amounts[index]}`).join("\n");
+    let writeContent = addresses.map((address, index) => `${address},${amounts[index]}`).join("\n");
 
     console.log(`Staking from ${i} to ${i + batchSize} of ${userRecords.length}`);
     try {
@@ -172,13 +172,18 @@ async function run(batchSize = 500, startAt = 0, endAt = 0) {
 
       const txn = await simpleStaking.stakeBehalf(addresses, amounts);
       await txn.wait();
-      console.log(`Success, txn hash: ${txn.hash}`);
+
+      writeContent = addresses.map((address, index) => `${address},${amounts[index]},${txn.hash}`).join("\n");
+      console.log(`[Success] txn hash: ${txn.hash}`);
       fs.appendFileSync(`stake_success_${executeTime}.log`, writeContent + "\n");
     } catch (error) {
       console.warn(error);
+      console.warn(`[Failed] to stake from ${i} to ${i + batchSize} of ${userRecords.length}`);
       fs.appendFileSync(`stake_error_${executeTime}.log`, writeContent + "\n");
     }
   }
+
+  console.log("Script finished, validating all records");
 
   await validateAllRecords(
     userRecords.map((u) => u.address),
