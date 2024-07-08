@@ -5,6 +5,7 @@ const csv = require("csv-parse");
 const ethereumMulticall = require("ethereum-multicall");
 
 const REQUIRE_PARSE = true;
+const MAX_GAS = hre.ethers.parseUnits("15", "gwei");
 
 async function loadCSV(filePath) {
   const results = [];
@@ -164,13 +165,26 @@ async function run(batchSize = 500, startAt = 0, endAt = 0) {
       const gasPrice = (await hre.ethers.provider.getFeeData()).gasPrice;
 
       const estimatedGas = await simpleStaking.stakeBehalf.estimateGas(addresses, amounts);
+
+      let estPrice = 0n;
+      do {
+        estPrice = (await signer.provider.getFeeData()).gasPrice || 0n;
+        console.log("txn estimation", estPrice, MAX_GAS);
+        if (estPrice > MAX_GAS) {
+          console.log("waiting for gas price to drop");
+          await wait(15000);
+        }
+      } while (estPrice > MAX_GAS);
+
       console.log(
         `Current gas price per unit: ${hre.ethers.formatUnits(gasPrice, "gwei")} txn gas unit: ${estimatedGas} total cost: ${hre.ethers.formatEther(
           gasPrice * estimatedGas
         )} token: ${hre.ethers.formatEther(await token.balanceOf(await signer.getAddress()))}`
       );
 
-      const txn = await simpleStaking.stakeBehalf(addresses, amounts);
+      const txn = await simpleStaking.stakeBehalf(addresses, amounts, {
+        maxFeePerGas: MAX_GAS,
+      });
       await txn.wait();
 
       writeContent = addresses.map((address, index) => `${address},${amounts[index]},${txn.hash}`).join("\n");
