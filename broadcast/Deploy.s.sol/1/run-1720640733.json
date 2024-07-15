@@ -1,0 +1,32 @@
+{
+  "transactions": [
+    {
+      "hash": "0x67d3f8dcce39a77598afbc43ca0612daa842537d5d6fdf07c47c1d19774d5c1d",
+      "transactionType": "CALL",
+      "contractName": "SimpleStaking",
+      "contractAddress": "0x9a98e6b60784634ae273f2fb84519c7f1885aed2",
+      "function": "changeUpdater(address)",
+      "arguments": [
+        "0x0aDB8F65C59cedDD90c210a0CaEd33B18906CD48"
+      ],
+      "transaction": {
+        "from": "0x84db3d1de9a43aa144c21b248ad31a1c83d8334d",
+        "to": "0x9a98e6b60784634ae273f2fb84519c7f1885aed2",
+        "gas": "0xa5ff",
+        "value": "0x0",
+        "input": "0x326220bf0000000000000000000000000adb8f65c59ceddd90c210a0caed33b18906cd48",
+        "nonce": "0x5",
+        "chainId": "0x1"
+      },
+      "additionalContracts": [],
+      "isFixedGasLimit": false
+    }
+  ],
+  "receipts": [],
+  "libraries": [],
+  "pending": [],
+  "returns": {},
+  "timestamp": 1720640733,
+  "chain": 1,
+  "commit": "a480a80"
+}

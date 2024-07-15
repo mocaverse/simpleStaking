@@ -48,13 +48,7 @@ abstract contract StateZero is Test {
         updaterTokens = 50 ether;
 
         //contracts
-        mocaToken = new ERC20Mock();    
-
-
-
-
-
-        
+        mocaToken = new ERC20Mock();            
     }
 }
 

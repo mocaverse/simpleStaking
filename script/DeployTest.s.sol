@@ -80,3 +80,17 @@ contract StakeBehalf is Script {
 }
 
 // forge script script/DeployTest.s.sol:StakeBehalf --rpc-url sepolia --broadcast -vvvv
+
+contract TransferOwnership is Script {
+    function run() public {
+
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        vm.startBroadcast(deployerPrivateKey);
+
+        SimpleStaking(0x40e556662859cAAE4Fb944b36020B94572165ab8).transferOwnership(0x8C9C001F821c04513616fd7962B2D8c62f925fD2);
+
+        vm.stopBroadcast();
+    }
+}
+
+// forge script script/DeployTest.s.sol:TransferOwnership --rpc-url sepolia --broadcast -vvvv
