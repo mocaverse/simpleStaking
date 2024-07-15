@@ -5,6 +5,7 @@ const csv = require("csv-parse");
 const ethereumMulticall = require("ethereum-multicall");
 
 const REQUIRE_PARSE = true;
+const MAX_GAS = hre.ethers.parseUnits("15", "gwei");
 
 async function loadCSV(filePath) {
   const results = [];
@@ -146,39 +147,57 @@ async function run(batchSize = 500, startAt = 0, endAt = 0) {
   const allAddresses = userRecords.map((record) => record.address);
   const allAmounts = userRecords.map((record) => record.amount).map((amount) => (REQUIRE_PARSE ? hre.ethers.parseEther(amount) : amount));
 
-  // const expectedAmounts = new Array(end - startAt).fill(0);
-  // await validateAllRecords(allAddresses.slice(startAt, end), expectedAmounts, simpleStaking);
+  const expectedAmounts = new Array(end - startAt).fill(0);
+  await validateAllRecords(allAddresses.slice(startAt, end), expectedAmounts, simpleStaking);
 
   for (let i = startAt; i < end; i += batchSize) {
     const addresses = allAddresses.slice(i, i + batchSize);
     const amounts = allAmounts.slice(i, i + batchSize);
 
     // validate the batch records are 0 before staking
-    const expectedAmounts = new Array(amounts.length).fill(0);
-    await validateAllRecords(addresses, expectedAmounts, simpleStaking);
+    // const expectedAmounts = new Array(amounts.length).fill(0);
+    // await validateAllRecords(addresses, expectedAmounts, simpleStaking);
 
-    const writeContent = addresses.map((address, index) => `${address},${amounts[index]}`).join("\n");
+    let writeContent = addresses.map((address, index) => `${address},${amounts[index]}`).join("\n");
 
     console.log(`Staking from ${i} to ${i + batchSize} of ${userRecords.length}`);
     try {
       const gasPrice = (await hre.ethers.provider.getFeeData()).gasPrice;
 
       const estimatedGas = await simpleStaking.stakeBehalf.estimateGas(addresses, amounts);
+
+      let estPrice = 0n;
+      do {
+        estPrice = (await signer.provider.getFeeData()).gasPrice || 0n;
+        console.log("txn estimation", estPrice, MAX_GAS);
+        if (estPrice > MAX_GAS) {
+          console.log("waiting for gas price to drop");
+          await wait(15000);
+        }
+      } while (estPrice > MAX_GAS);
+
       console.log(
         `Current gas price per unit: ${hre.ethers.formatUnits(gasPrice, "gwei")} txn gas unit: ${estimatedGas} total cost: ${hre.ethers.formatEther(
           gasPrice * estimatedGas
         )} token: ${hre.ethers.formatEther(await token.balanceOf(await signer.getAddress()))}`
       );
 
-      const txn = await simpleStaking.stakeBehalf(addresses, amounts);
+      const txn = await simpleStaking.stakeBehalf(addresses, amounts, {
+        maxFeePerGas: MAX_GAS,
+      });
       await txn.wait();
-      console.log(`Success, txn hash: ${txn.hash}`);
+
+      writeContent = addresses.map((address, index) => `${address},${amounts[index]},${txn.hash}`).join("\n");
+      console.log(`[Success] txn hash: ${txn.hash}`);
       fs.appendFileSync(`stake_success_${executeTime}.log`, writeContent + "\n");
     } catch (error) {
       console.warn(error);
+      console.warn(`[Failed] to stake from ${i} to ${i + batchSize} of ${userRecords.length}`);
       fs.appendFileSync(`stake_error_${executeTime}.log`, writeContent + "\n");
     }
   }
+
+  console.log("Script finished, validating all records");
 
   await validateAllRecords(
     userRecords.map((u) => u.address),

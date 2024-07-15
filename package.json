@@ -11,7 +11,7 @@
     "node-local": "npx hardhat node",
     "batch-stake-local": "npx hardhat run script/BatchDeposit.s.js --network localhost",
     "batch-stake-sepolia": "npx hardhat run script/BatchDeposit.s.js --network sepolia",
-    "batch-stake-prod": "npx hardhat run script/BatchDeposit.s.js --network mainnet",
+    "batch-stake-prod": "npx hardhat run script/BatchDeposit.s.js --network ethereum",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
